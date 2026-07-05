@@ -1,0 +1,129 @@
+import { config } from "./config.js";
+import { log, runAgent } from "./anthropic.js";
+import { pickTools } from "./tools.js";
+import type { AgentSpec, Tool, ToolContext } from "./types.js";
+
+/** Layer 2 — specialist agents, each with a focused toolset. */
+export const SPECIALISTS: Record<string, AgentSpec> = {
+  general: {
+    name: "general",
+    description: "Assistente generalista para tarefas do dia-a-dia.",
+    model: config.fastModel,
+    toolNames: ["datetime", "calculator", "memory_save", "memory_recall"],
+    system:
+      "És um assistente generalista do Jarvis. Resolve a tarefa de forma direta e útil, em português de Portugal. Usa tools quando precisares de factos exatos.",
+  },
+  researcher: {
+    name: "researcher",
+    description: "Pesquisa e sintetiza informação da web.",
+    model: config.fastModel,
+    toolNames: ["web_search", "fetch_url", "datetime", "memory_save"],
+    system:
+      "És o agente de investigação do Jarvis. Pesquisa com web_search, lê páginas com fetch_url, cruza informação e devolve um resumo factual e conciso, citando fontes quando existirem. Português de Portugal.",
+  },
+  coder: {
+    name: "coder",
+    description: "Programação, debugging e design de software.",
+    model: config.model,
+    toolNames: ["calculator"],
+    system:
+      "És o agente de engenharia do Jarvis. Escreve código correto, completo e idiomático, explica decisões de forma breve e aponta riscos. Português de Portugal.",
+  },
+  memory: {
+    name: "memory",
+    description: "Gere a memória persistente sobre o Lauro.",
+    model: config.fastModel,
+    toolNames: ["memory_save", "memory_recall"],
+    system:
+      "És o agente de memória do Jarvis. Guarda e recupera factos relevantes sobre o Lauro de forma organizada. Português de Portugal.",
+  },
+};
+
+/** Run a single specialist on a delegated task. */
+export async function runSpecialist(
+  agentName: string,
+  task: string,
+  ctx: ToolContext,
+): Promise<string> {
+  const spec = SPECIALISTS[agentName] ?? SPECIALISTS.general;
+  log("orchestrator", `delegando -> ${spec.name}: ${task.slice(0, 70)}`);
+  return runAgent({
+    label: spec.name,
+    system: spec.system,
+    model: spec.model,
+    tools: pickTools(spec.toolNames),
+    messages: [{ role: "user", content: task }],
+    ctx,
+    maxSteps: 8,
+  });
+}
+
+/** Layer 1 tool — lets the orchestrator delegate to a specialist. */
+const delegateTool: Tool = {
+  name: "delegate",
+  description:
+    "Delega uma sub-tarefa a um agente especialista. Usa quando a tarefa beneficia de foco: 'researcher' (web), 'coder' (programação), 'memory' (memória), 'general' (geral).",
+  input_schema: {
+    type: "object",
+    properties: {
+      agent: {
+        type: "string",
+        enum: ["general", "researcher", "coder", "memory"],
+        description: "Especialista a usar",
+      },
+      task: { type: "string", description: "Instrução completa e autónoma para o especialista" },
+    },
+    required: ["agent", "task"],
+  },
+  run: (input: { agent: string; task: string }, ctx) =>
+    runSpecialist(input.agent, input.task, ctx),
+};
+
+const ORCHESTRATOR_SYSTEM = `És o Jarvis, o assistente pessoal do Lauro (português de Portugal, direto e competente).
+És a camada de orquestração: analisas o pedido e decides como o resolver.
+- Para tarefas simples, responde diretamente.
+- Para tarefas que beneficiam de foco, usa a tool 'delegate' para um especialista (researcher/coder/memory/general).
+- Usa tools diretas (datetime, calculator, web_search, memory_save, memory_recall) quando fizer sentido.
+- Guarda na memória factos duradouros sobre o Lauro quando os descobrires.
+Sintetiza sempre uma resposta final clara para o utilizador. Nunca exponhas detalhes internos das tools a menos que ajudem.`;
+
+/** Layer 0 — the orchestrator the gateway calls. */
+export async function runOrchestrator(
+  messages: { role: "user" | "assistant"; content: string }[],
+  ctx: ToolContext,
+): Promise<string> {
+  const orchestratorTools: Tool[] = [
+    delegateTool,
+    ...pickTools([
+      "datetime",
+      "calculator",
+      "web_search",
+      "fetch_url",
+      "memory_save",
+      "memory_recall",
+    ]),
+  ];
+  const facts = ctx.memory.facts(ctx.sessionId);
+  const system =
+    ORCHESTRATOR_SYSTEM +
+    (facts.length ? `\n\nFactos conhecidos sobre o Lauro:\n- ${facts.join("\n- ")}` : "");
+
+  return runAgent({
+    label: "orchestrator",
+    system,
+    model: config.model,
+    tools: orchestratorTools,
+    messages,
+    ctx,
+    maxSteps: 12,
+  });
+}
+
+export function listAgents() {
+  return Object.values(SPECIALISTS).map((s) => ({
+    name: s.name,
+    description: s.description,
+    model: s.model,
+    tools: s.toolNames,
+  }));
+}
