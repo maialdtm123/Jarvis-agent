@@ -15,7 +15,8 @@ Assistente pessoal do Lauro: **app desktop nativa** (Tauri + React) com um
 A UI fala com **três cérebros** (botões no topo):
 - **Jarvis Agent** — o servidor multi-agente (`server/`), com tools e memória.
 - **Claude** — `claude-opus-4-8` direto.
-- **GPT** — `gpt-4o` direto.
+- **Llama 3.3** — `meta-llama/llama-3.3-70b-instruct:free` via OpenRouter,
+  com fallback para o modelo local configurado no Ollama.
 
 ## Setup
 
@@ -25,7 +26,7 @@ As chaves antigas que estavam hardcoded **foram removidas — revoga-as** em
 [platform.openai.com](https://platform.openai.com) e gera novas.
 
 ```bash
-# Desktop (chamadas diretas a Claude/GPT)
+# Desktop (chamadas diretas a Claude/Llama)
 cp src-tauri/.env.example src-tauri/.env   # cola as chaves novas
 
 # Servidor (cérebro multi-agente)

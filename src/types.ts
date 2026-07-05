@@ -17,5 +17,9 @@ export interface ProviderInfo {
 export const PROVIDERS: ProviderInfo[] = [
   { id: "jarvis", label: "Jarvis Agent", hint: "Orquestrador multi-agente + tools" },
   { id: "claude", label: "Claude", hint: "Claude via OpenRouter" },
-  { id: "openai", label: "GPT", hint: "GPT via OpenRouter" },
+  {
+    id: "openai",
+    label: "Llama 3.3",
+    hint: "Llama 3.3 70B via OpenRouter; fallback local via Ollama",
+  },
 ];

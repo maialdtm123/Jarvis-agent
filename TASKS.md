@@ -10,7 +10,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 
 - [ ] **D1** @lauro — Vector store: `sqlite-vec` (recomendado) / ChromaDB / turbovec?
 - [ ] **D2** @lauro — Search provider: Tavily / Brave / scraping DDG?
-- [ ] **D3** @lauro — GPT: ligar OpenAI real (dá custo) ou renomear o botão?
+- [x] **D3** @lauro — Renomear o botão para o modelo real (`Llama 3.3`); não ligar OpenAI pago.
 - [ ] **D4** @lauro — Shell tool na Fase 3 já, ou adiar?
 
 ---

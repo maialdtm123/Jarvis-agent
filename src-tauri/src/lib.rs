@@ -148,7 +148,7 @@ async fn ask_claude(messages: Vec<ChatMessage>, model: Option<String>) -> Result
     }
 }
 
-/// Direct call to a GPT model — needs an OpenRouter key (sk-or) or an OpenAI key.
+/// Direct model call: Llama via OpenRouter, GPT with an explicit OpenAI key, or local Ollama.
 #[tauri::command]
 async fn ask_openai(messages: Vec<ChatMessage>, model: Option<String>) -> Result<String, String> {
     if messages.is_empty() {
