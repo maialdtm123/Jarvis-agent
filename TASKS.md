@@ -22,7 +22,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - [x] **T1.3** @codex — R2: `runSpecialist` injeta `globalFacts` no system do especialista. Assinatura passa a receber contexto. Teste: especialista vê os factos.
 - [x] **T1.4** @codex — R5: `npm install` limpo, fixar TS/Vite/plugin-react em versões reais. Confirmar `npm run build` + `tsc --noEmit` verdes.
 - [x] **T1.5** @codex — R6: ligar `config.coderModel` ao especialista `coder` (ou remover se D-decisão for remover).
-- [ ] **T1.6** @codex — R13: setup de testes (`vitest`). Testes iniciais: `memory`, `calculator`, `normaliseHistory`, `toAnthropicMessages`. `npm test` no CI local.
+- [x] **T1.6** @codex — R13: setup de testes (`vitest`). Testes iniciais: `memory`, `calculator`, `normaliseHistory`, `toAnthropicMessages`. `npm test` no CI local.
 - [ ] **T1.7** @claude — cross-review dos diffs T1.1–T1.6 em REVIEW rolling; aprovar ou devolver.
 
 ## Fase 2 — Memória RAG (depende de D1)

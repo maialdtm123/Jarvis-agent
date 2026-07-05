@@ -13,7 +13,7 @@ const datetime: Tool = {
 };
 
 /** Safe arithmetic evaluator (no eval). */
-const calculator: Tool = {
+export const calculator: Tool = {
   name: "calculator",
   description: "Calcula uma expressão aritmética. Ex: '2 * (3 + 4) / 7'.",
   input_schema: {

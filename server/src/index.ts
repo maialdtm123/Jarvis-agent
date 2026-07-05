@@ -1,8 +1,9 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { assertConfig, config } from "./config.js";
 import { listAgents, runOrchestrator } from "./agents.js";
+import { normaliseHistory } from "./history.js";
 import { Memory } from "./memory.js";
-import type { ToolContext, Turn } from "./types.js";
+import type { ToolContext } from "./types.js";
 
 const memory = new Memory();
 const MAX_BODY_BYTES = 1_000_000; // 1 MB
@@ -47,19 +48,6 @@ function readBody(req: IncomingMessage): Promise<any> {
 function authorised(req: IncomingMessage): boolean {
   if (!config.apiToken) return true;
   return req.headers["x-jarvis-token"] === config.apiToken;
-}
-
-/** Drop any leading assistant turns — Anthropic requires the first message to be 'user'. */
-function normaliseHistory(turns: Turn[]): { role: "user" | "assistant"; content: string }[] {
-  const flat = turns
-    .filter((t) => t.role === "user" || t.role === "assistant")
-    .map((t) => ({
-      role: t.role as "user" | "assistant",
-      content: typeof t.content === "string" ? t.content : "",
-    }));
-  let i = 0;
-  while (i < flat.length && flat[i].role !== "user") i++;
-  return flat.slice(i);
 }
 
 const server = createServer(async (req, res) => {

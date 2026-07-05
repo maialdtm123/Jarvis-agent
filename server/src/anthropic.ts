@@ -102,7 +102,7 @@ async function callOpenAICompatible(
 
 // ---------- Anthropic (native messages format) ----------
 
-function toAnthropicMessages(messages: Turn[]): { system: string; msgs: any[] } {
+export function toAnthropicMessages(messages: Turn[]): { system: string; msgs: any[] } {
   const system = messages
     .filter((m) => m.role === "system")
     .map((m) => m.content ?? "")
