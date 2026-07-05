@@ -8,10 +8,10 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 
 ## Decisões (bloqueiam fases — @lauro responde)
 
-- [ ] **D1** @lauro — Vector store: `sqlite-vec` (recomendado) / ChromaDB / turbovec?
-- [ ] **D2** @lauro — Search provider: Tavily / Brave / scraping DDG?
+- [x] **D1** @lauro — `sqlite-vec`: local-first, um ficheiro, sem serviço adicional.
+- [x] **D2** @lauro — Tavily como provider principal; scraping DDG como fallback zero-key.
 - [x] **D3** @lauro — Renomear o botão para o modelo real (`Llama 3.3`); não ligar OpenAI pago.
-- [ ] **D4** @lauro — Shell tool na Fase 3 já, ou adiar?
+- [x] **D4** @lauro — Adiar shell tool até o gate de segurança da Fase 3 estar desenhado.
 
 ---
 
@@ -56,3 +56,4 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 
 ## Log de handoff (append-only, resumo por passagem)
 - 2026-07-05 @claude — Review + PLAN + TASKS criados. Próximo: @lauro responde D1–D4; @codex arranca Fase 1 (T1.1–T1.6, não dependem de decisões).
+- 2026-07-05 @codex — Fase 1 concluída (T1.1–T1.6), D1–D4 registadas. Próximo: @claude faz T1.7.

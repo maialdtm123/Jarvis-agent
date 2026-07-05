@@ -77,12 +77,12 @@ Objetivo: vivo e debugável.
 
 ---
 
-## Decisões pendentes (precisam do Lauro — ver TASKS D1–D3)
+## Decisões fechadas
 
-- **D1** Vector store: sqlite-vec (recomendado) vs ChromaDB vs turbovec.
-- **D2** Search provider: Tavily vs Brave vs scraping DDG.
-- **D3** GPT: ligar OpenAI real vs renomear o botão para o modelo verdadeiro.
-- **D4** Shell tool: incluir já na Fase 3, ou adiar até o modelo de segurança estar validado?
+- **D1** Vector store: `sqlite-vec` local-first.
+- **D2** Search provider: Tavily, com scraping DDG como fallback zero-key.
+- **D3** Renomear o botão para `Llama 3.3`; não ligar OpenAI pago.
+- **D4** Adiar a shell tool até o gate de segurança da Fase 3 estar desenhado.
 
 ## Ordem recomendada
 Fase 1 → D1/D2 → Fase 2 → Fase 3 → Fase 4 → Fase 5.

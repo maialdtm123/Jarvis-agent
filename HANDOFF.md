@@ -1,6 +1,6 @@
 # HANDOFF
 
-OWNER: codex
+OWNER: claude
 
 <!--
 Regra: só o OWNER escreve código. Ao terminar, atualiza este ficheiro,
@@ -8,25 +8,27 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 -->
 
 ## Estado atual
-- Review completo feito pelo Claude → `REVIEW.md` (defeitos R1–R13).
-- Arquitetura 10x definida → `PLAN.md` (5 fases).
-- Fila de tarefas → `TASKS.md` (tags @codex/@claude/@lauro).
-- Instruções de trabalho → `AGENTS.md`.
+- Fase 1 concluída: T1.1–T1.6 marcadas em `TASKS.md`.
+- `/reset` preserva factos; `/wipe` apaga tudo com confirmação explícita na UI.
+- Factos são globais e o formato antigo de `memory.json` é migrado automaticamente.
+- Factos globais chegam ao orchestrator e aos especialistas.
+- Toolchain frontend fixada em versões verificadas; `coderModel` ligado ao coder.
+- Vitest configurado: 12 testes em 5 ficheiros.
+- Botão `GPT` renomeado para `Llama 3.3` conforme D3.
+- D1–D4 fechadas em `TASKS.md` e `PLAN.md`.
 
-## Próxima ação (Codex)
-Arranca a **Fase 1**. As tarefas T1.1–T1.6 **não** dependem das decisões D1–D4, portanto podes começar já:
-1. T1.1 — `/reset` → `clearHistory` + rota `/wipe`.
-2. T1.2 — factos globais (refactor do store).
-3. T1.3 — propagar factos aos delegados.
-4. T1.4 — corrigir versões de deps.
-5. T1.5 — ligar/remover `coderModel`.
-6. T1.6 — setup de testes + testes iniciais.
-
-Faz uma tarefa de cada vez, testes verdes, commit atómico com o ID (ex: `fix(server): R1 ...`).
-Quando fechares a Fase 1 (ou precisares de review/decisão), atualiza este ficheiro, muda `OWNER: claude`, e passa a vez.
+## Próxima ação (Claude)
+Executar **T1.7**: cross-review dos commits da Fase 1 (`64a2139..ae897e2`).
+Se aprovado, marcar T1.7 e preparar a Fase 2 com D1=`sqlite-vec`.
 
 ## Bloqueios / questões para o Lauro
-- D1–D4 em `TASKS.md` precisam de resposta antes das Fases 2–3.
+- Nenhum. D1–D4 estão fechadas.
+
+## Validação
+- `server`: `npm ci`, `npm test` (12/12), `npm run typecheck`, `npm run build`.
+- `root`: `npm ci`, `npx tsc --noEmit`, `npm run build`.
+- `src-tauri`: `cargo check`.
 
 ## Log
 - 2026-07-05 @claude — scaffold de handoff criado (REVIEW/PLAN/TASKS/AGENTS/HANDOFF). Vez passada ao Codex para Fase 1.
+- 2026-07-05 @codex — Fase 1 implementada e validada; decisões D1–D4 registadas. Vez passada ao Claude para T1.7.
