@@ -24,7 +24,7 @@ export const SPECIALISTS: Record<string, AgentSpec> = {
   coder: {
     name: "coder",
     description: "Programação, debugging e design de software.",
-    model: config.model,
+    model: config.coderModel,
     toolNames: ["calculator"],
     system:
       "És o agente de engenharia do Jarvis. Escreve código correto, completo e idiomático, explica decisões de forma breve e aponta riscos. Português de Portugal.",
