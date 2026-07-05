@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { PROVIDERS, type ChatMessage, type Provider } from "./types";
-import { jarvisHealth, jarvisReset, sendToProvider } from "./api";
+import { jarvisHealth, jarvisReset, jarvisWipe, sendToProvider } from "./api";
 
 type View = "chat" | "agents" | "memory" | "logs" | "settings";
 
@@ -93,6 +93,22 @@ export default function App() {
     }
   }
 
+  async function wipeMemory() {
+    const confirmed = window.confirm(
+      "Apagar toda a memória do Jarvis? Esta ação remove factos e conversas e não pode ser anulada.",
+    );
+    if (!confirmed) return;
+
+    setError(null);
+    try {
+      const ok = await jarvisWipe();
+      if (!ok) throw new Error("O servidor recusou apagar a memória.");
+      setMessages([GREETING]);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   const nav: { id: View; label: string; icon: string }[] = [
     { id: "chat", label: "Chat", icon: "💬" },
     { id: "agents", label: "Agentes", icon: "🤖" },
@@ -147,6 +163,9 @@ export default function App() {
           </div>
           <button className="ghost" onClick={clearChat} title="Limpar conversa">
             Limpar
+          </button>
+          <button className="ghost" onClick={wipeMemory} title="Apagar toda a memória">
+            Apagar memória
           </button>
         </header>
 

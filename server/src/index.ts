@@ -81,7 +81,7 @@ const server = createServer(async (req, res) => {
     return send(res, 200, { agents: listAgents() });
   }
 
-  if (method === "POST" && (url === "/chat" || url === "/reset")) {
+  if (method === "POST" && (url === "/chat" || url === "/reset" || url === "/wipe")) {
     if (!authorised(req)) return send(res, 401, { error: "Token inválido (x-jarvis-token)." });
 
     try {
@@ -89,8 +89,13 @@ const server = createServer(async (req, res) => {
       const sessionId = String(body.sessionId ?? "default");
 
       if (url === "/reset") {
-        memory.clearSession(sessionId);
+        memory.clearHistory(sessionId);
         return send(res, 200, { ok: true, sessionId });
+      }
+
+      if (url === "/wipe") {
+        memory.clearAll();
+        return send(res, 200, { ok: true });
       }
 
       const message = String(body.message ?? "").trim();
@@ -130,7 +135,7 @@ server.listen(config.port, () => {
   console.log(`🤖 Jarvis server online em http://localhost:${config.port}`);
   console.log(`   modelo: ${config.model} · fast: ${config.fastModel}`);
   console.log(`   auth: ${config.apiToken ? "ON (x-jarvis-token)" : "OFF"}`);
-  console.log(`   rotas: GET /health · GET /agents · POST /chat · POST /reset`);
+  console.log(`   rotas: GET /health · GET /agents · POST /chat · POST /reset · POST /wipe`);
 });
 
 function shutdown(signal: string): void {

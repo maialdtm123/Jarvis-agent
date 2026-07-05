@@ -237,6 +237,19 @@ async fn jarvis_reset(session_id: Option<String>) -> Result<bool, String> {
     Ok(res.status().is_success())
 }
 
+/// Clear all conversation history and durable facts on the Jarvis server.
+#[tauri::command]
+async fn jarvis_wipe() -> Result<bool, String> {
+    let url = jarvis_url();
+
+    let res = with_token(http().post(format!("{url}/wipe")).json(&json!({})))
+        .send()
+        .await
+        .map_err(|e| format!("Servidor Jarvis inacessível em {url}: {e}"))?;
+
+    Ok(res.status().is_success())
+}
+
 /// Health probe used by the UI to show whether the cloud brain is online.
 #[tauri::command]
 async fn jarvis_health() -> Result<bool, String> {
@@ -258,6 +271,7 @@ pub fn run() {
             ask_openai,
             jarvis_agent,
             jarvis_reset,
+            jarvis_wipe,
             jarvis_health
         ])
         .run(tauri::generate_context!())

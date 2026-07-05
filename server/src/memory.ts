@@ -83,4 +83,10 @@ export class Memory {
     delete this.store.sessions[id];
     this.persist();
   }
+
+  /** Wipe all persisted conversation history and durable facts. */
+  clearAll(): void {
+    this.store = { sessions: {} };
+    this.persist();
+  }
 }

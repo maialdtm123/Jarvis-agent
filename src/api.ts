@@ -21,6 +21,10 @@ export function jarvisReset(sessionId?: string): Promise<boolean> {
   return invoke<boolean>("jarvis_reset", { sessionId });
 }
 
+export function jarvisWipe(): Promise<boolean> {
+  return invoke<boolean>("jarvis_wipe");
+}
+
 /** Route a turn to the selected provider. */
 export function sendToProvider(
   provider: Provider,

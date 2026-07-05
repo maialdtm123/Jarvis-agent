@@ -17,7 +17,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 
 ## Fase 1 — Fixes + fundação
 
-- [ ] **T1.1** @codex — R1: `/reset` usa `clearHistory`. Nova rota `POST /wipe` (apaga tudo) + confirmação na UI. Teste: reset mantém factos, wipe não.
+- [x] **T1.1** @codex — R1: `/reset` usa `clearHistory`. Nova rota `POST /wipe` (apaga tudo) + confirmação na UI. Teste: reset mantém factos, wipe não.
 - [ ] **T1.2** @codex — Factos globais: refactor do store para `{ globalFacts, sessions:{id:{history}} }`. `addFact/recall/facts` deixam de depender de sessionId. Migrar `memory.json` antigo se existir. Testes.
 - [ ] **T1.3** @codex — R2: `runSpecialist` injeta `globalFacts` no system do especialista. Assinatura passa a receber contexto. Teste: especialista vê os factos.
 - [ ] **T1.4** @codex — R5: `npm install` limpo, fixar TS/Vite/plugin-react em versões reais. Confirmar `npm run build` + `tsc --noEmit` verdes.
