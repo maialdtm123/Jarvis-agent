@@ -39,6 +39,15 @@ export const SPECIALISTS: Record<string, AgentSpec> = {
   },
 };
 
+export function withGlobalFacts(system: string, globalFacts: string[]): string {
+  return (
+    system +
+    (globalFacts.length
+      ? `\n\nFactos conhecidos sobre o Lauro:\n- ${globalFacts.join("\n- ")}`
+      : "")
+  );
+}
+
 /** Run a single specialist on a delegated task. */
 export async function runSpecialist(
   agentName: string,
@@ -49,7 +58,7 @@ export async function runSpecialist(
   log("orchestrator", `delegando -> ${spec.name}: ${task.slice(0, 70)}`);
   return runAgent({
     label: spec.name,
-    system: spec.system,
+    system: withGlobalFacts(spec.system, ctx.memory.facts()),
     model: spec.model,
     tools: pickTools(spec.toolNames),
     messages: [{ role: "user", content: task }],
@@ -104,9 +113,7 @@ export async function runOrchestrator(
     ]),
   ];
   const facts = ctx.memory.facts();
-  const system =
-    ORCHESTRATOR_SYSTEM +
-    (facts.length ? `\n\nFactos conhecidos sobre o Lauro:\n- ${facts.join("\n- ")}` : "");
+  const system = withGlobalFacts(ORCHESTRATOR_SYSTEM, facts);
 
   return runAgent({
     label: "orchestrator",
