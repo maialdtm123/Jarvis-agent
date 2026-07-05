@@ -111,7 +111,7 @@ const fetchUrl: Tool = {
   },
 };
 
-/** Persist a durable fact for this session. */
+/** Persist a durable global fact. */
 const memorySave: Tool = {
   name: "memory_save",
   description: "Guarda um facto importante sobre o Lauro ou o contexto, para lembrar no futuro.",
@@ -121,7 +121,7 @@ const memorySave: Tool = {
     required: ["fact"],
   },
   run: (input: { fact: string }, ctx) => {
-    ctx.memory.addFact(ctx.sessionId, String(input.fact ?? ""));
+    ctx.memory.addFact(String(input.fact ?? ""));
     return "Guardado na memória.";
   },
 };
@@ -135,7 +135,7 @@ const memoryRecall: Tool = {
     properties: { query: { type: "string", description: "Filtro opcional" } },
   },
   run: (input: { query?: string }, ctx) => {
-    const facts = ctx.memory.recall(ctx.sessionId, input?.query);
+    const facts = ctx.memory.recall(input?.query);
     return facts.length ? facts.map((f) => `• ${f}`).join("\n") : "Sem factos guardados.";
   },
 };

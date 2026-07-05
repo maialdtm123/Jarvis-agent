@@ -103,7 +103,7 @@ export async function runOrchestrator(
       "memory_recall",
     ]),
   ];
-  const facts = ctx.memory.facts(ctx.sessionId);
+  const facts = ctx.memory.facts();
   const system =
     ORCHESTRATOR_SYSTEM +
     (facts.length ? `\n\nFactos conhecidos sobre o Lauro:\n- ${facts.join("\n- ")}` : "");
