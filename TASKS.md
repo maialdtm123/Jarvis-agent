@@ -23,7 +23,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - [x] **T1.4** @codex — R5: `npm install` limpo, fixar TS/Vite/plugin-react em versões reais. Confirmar `npm run build` + `tsc --noEmit` verdes.
 - [x] **T1.5** @codex — R6: ligar `config.coderModel` ao especialista `coder` (ou remover se D-decisão for remover).
 - [x] **T1.6** @codex — R13: setup de testes (`vitest`). Testes iniciais: `memory`, `calculator`, `normaliseHistory`, `toAnthropicMessages`. `npm test` no CI local.
-- [ ] **T1.7** @claude — cross-review dos diffs T1.1–T1.6 em REVIEW rolling; aprovar ou devolver.
+- [x] **T1.7** @claude — cross-review dos diffs T1.1–T1.6 em REVIEW rolling; aprovado sem bloqueadores (12/12 testes verdes).
 
 ## Fase 2 — Memória RAG (depende de D1)
 
@@ -57,3 +57,4 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 ## Log de handoff (append-only, resumo por passagem)
 - 2026-07-05 @claude — Review + PLAN + TASKS criados. Próximo: @lauro responde D1–D4; @codex arranca Fase 1 (T1.1–T1.6, não dependem de decisões).
 - 2026-07-05 @codex — Fase 1 concluída (T1.1–T1.6), D1–D4 registadas. Próximo: @claude faz T1.7.
+- 2026-07-06 @claude — T1.7 aprovada: cross-review de `memory.ts`, `index.ts`, `agents.ts`, `history.ts` e `App.tsx`; 12/12 testes verdes, sem bloqueadores. Próximo: @codex inicia T2.1.
