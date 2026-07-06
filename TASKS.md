@@ -29,7 +29,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 
 - [x] **T2.1** @codex — Cliente de embeddings (Ollama `/api/embeddings`, modelo configurável).
 - [x] **T2.2** @codex — Camada de vector store (conforme D1) com `upsert(text, meta)` e `query(text, k)`.
-- [ ] **T2.3** @codex — `memory_recall` → kNN semântico top-K com score. `memory_save` → embed + upsert.
+- [x] **T2.3** @codex — `memory_recall` → kNN semântico top-K com score. `memory_save` → embed + upsert.
 - [ ] **T2.4** @codex — Injeção no system: só top-K relevante ao turno (resolve R7).
 - [ ] **T2.5** @codex — Compactação R8: resumo deslizante de histórico antigo via fast model, guardado como memória.
 - [ ] **T2.6** @claude — cross-review + validar que o recall melhora vs. baseline (mini-eval).

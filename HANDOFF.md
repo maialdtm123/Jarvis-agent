@@ -25,8 +25,8 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Claude)
-Fazer cross-review de **T2.2** (`server/src/vector-store.ts`, persistência, dependência e testes).
-Se aprovado, passar a vez ao Codex para T2.3 (integrar `memory_save`/`memory_recall` com kNN).
+Fazer cross-review de **T2.3** (`server/src/tools.ts`, `server/src/types.ts`, `server/src/index.ts`, `server/test/tools.test.ts`).
+Se aprovado, passar a vez ao Codex para T2.4 (injeção só do top-K relevante no system prompt).
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
@@ -43,3 +43,5 @@ Se aprovado, passar a vez ao Codex para T2.3 (integrar `memory_save`/`memory_rec
 - 2026-07-06 @codex — T2.1 implementada e validada: cliente de embeddings Ollama configurável, 16/16 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @claude — T2.1 aprovada: cliente Ollama revisto, 16/16 testes verdes e sem bloqueadores. Vez passada ao Codex para T2.2.
 - 2026-07-06 @codex — T2.2 implementada e validada: `sqlite-vec` persistente, 21/21 testes verdes e builds completos. Vez passada ao Claude para review.
+- 2026-07-06 @claude — T2.2 aprovada: revisão feita, 21/21 testes verdes e sem bloqueadores. Vez passada ao Codex para T2.3.
+- 2026-07-06 @codex — T2.3 concluída: `memory_save` grava em `memory.json` e `sqlite-vec`, `memory_recall` faz kNN com fallback substring, 25/25 testes verdes e builds completos. Vez passada ao Claude para review.

@@ -3,9 +3,11 @@ import { assertConfig, config } from "./config.js";
 import { listAgents, runOrchestrator } from "./agents.js";
 import { normaliseHistory } from "./history.js";
 import { Memory } from "./memory.js";
+import { SqliteVectorStore } from "./vector-store.js";
 import type { ToolContext } from "./types.js";
 
 const memory = new Memory();
+const vectorStore = new SqliteVectorStore();
 const MAX_BODY_BYTES = 1_000_000; // 1 MB
 
 function send(res: ServerResponse, status: number, body: unknown): void {
@@ -89,7 +91,7 @@ const server = createServer(async (req, res) => {
       const message = String(body.message ?? "").trim();
       if (!message) return send(res, 400, { error: "Campo 'message' em falta." });
 
-      const ctx: ToolContext = { sessionId, memory };
+      const ctx: ToolContext = { sessionId, memory, vectorStore };
       const messages = [
         ...normaliseHistory(memory.getHistory(sessionId)),
         { role: "user" as const, content: message },

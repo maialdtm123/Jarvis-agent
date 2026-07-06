@@ -20,6 +20,7 @@ export interface ToolSchema {
 export interface ToolContext {
   sessionId: string;
   memory: import("./memory.js").Memory;
+  vectorStore: import("./vector-store.js").SqliteVectorStore;
 }
 
 /** A tool = schema + executable implementation. */

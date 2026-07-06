@@ -1,4 +1,4 @@
-import type { Tool } from "./types.js";
+﻿import type { Tool } from "./types.js";
 
 /** Current date/time. */
 const datetime: Tool = {
@@ -112,7 +112,7 @@ const fetchUrl: Tool = {
 };
 
 /** Persist a durable global fact. */
-const memorySave: Tool = {
+export const memorySave: Tool = {
   name: "memory_save",
   description: "Guarda um facto importante sobre o Lauro ou o contexto, para lembrar no futuro.",
   input_schema: {
@@ -120,22 +120,44 @@ const memorySave: Tool = {
     properties: { fact: { type: "string", description: "O facto a guardar" } },
     required: ["fact"],
   },
-  run: (input: { fact: string }, ctx) => {
-    ctx.memory.addFact(String(input.fact ?? ""));
-    return "Guardado na memória.";
+  run: async (input: { fact: string }, ctx) => {
+    const fact = String(input.fact ?? "");
+    ctx.memory.addFact(fact);
+    try {
+      await ctx.vectorStore.upsert(fact, { savedAt: new Date().toISOString() });
+      return "Guardado na memória.";
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return `Guardado na memória (recall semântico indisponível: ${msg}).`;
+    }
   },
 };
 
 /** Recall durable facts. */
-const memoryRecall: Tool = {
+export const memoryRecall: Tool = {
   name: "memory_recall",
   description: "Recupera factos guardados. Sem query devolve todos.",
   input_schema: {
     type: "object",
     properties: { query: { type: "string", description: "Filtro opcional" } },
   },
-  run: (input: { query?: string }, ctx) => {
-    const facts = ctx.memory.recall(input?.query);
+  run: async (input: { query?: string }, ctx) => {
+    const query = String(input?.query ?? "").trim();
+    if (!query) {
+      const facts = ctx.memory.facts();
+      return facts.length ? facts.map((f) => `• ${f}`).join("\n") : "Sem factos guardados.";
+    }
+
+    try {
+      const matches = await ctx.vectorStore.query(query, 5);
+      if (matches.length) {
+        return matches.map((match) => `• ${match.text} (score: ${match.score.toFixed(2)})`).join("\n");
+      }
+    } catch {
+      // Fallback to substring recall below.
+    }
+
+    const facts = ctx.memory.recall(query);
     return facts.length ? facts.map((f) => `• ${f}`).join("\n") : "Sem factos guardados.";
   },
 };
