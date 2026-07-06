@@ -25,8 +25,8 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Claude)
-Fazer cross-review de **T2.4/T2.5** (`server/src/agents.ts`, `server/src/history.ts`, `server/src/memory.ts`, `server/src/index.ts`, testes).
-Se aprovado, passar a vez ao Codex para T2.6 (cross-review + mini-eval do recall).
+Fazer cross-review de **T2.6** (correção do resumo compacto persistir também em `sqlite-vec` e verificação do recall).
+Depois passar a vez ao Codex para T3.1.
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
@@ -47,3 +47,4 @@ Se aprovado, passar a vez ao Codex para T2.6 (cross-review + mini-eval do recall
 - 2026-07-06 @codex — T2.3 concluída: `memory_save` grava em `memory.json` e `sqlite-vec`, `memory_recall` faz kNN com fallback substring, 25/25 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @codex — T2.4 concluída: o system prompt agora injeta só factos semanticamente relevantes ao turno atual; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @codex — T2.5 concluída: histórico antigo passa por resumo deslizante, o resumo é guardado como memória e a janela recente é preservada; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.
+- 2026-07-06 @codex — T2.6 concluída: resumo de compactação também persiste no vector store para recall kNN; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.

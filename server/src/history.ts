@@ -1,5 +1,6 @@
 import type { Turn } from "./types.js";
 import type { Memory } from "./memory.js";
+import type { SqliteVectorStore } from "./vector-store.js";
 
 /** Drop non-chat and leading assistant turns so provider history starts with a user. */
 export function normaliseHistory(
@@ -34,6 +35,7 @@ export async function compactHistoryIfNeeded(
   memory: Memory,
   sessionId: string,
   summarize: HistorySummarizer,
+  vectorStore: Pick<SqliteVectorStore, "upsert">,
   options: { trigger?: number; keep?: number } = {},
 ): Promise<CompactionResult> {
   const trigger = options.trigger ?? HISTORY_COMPACTION_TRIGGER;
@@ -58,8 +60,18 @@ export async function compactHistoryIfNeeded(
     return { compacted: false, removedTurns: 0, keptTurns: history.length };
   }
 
-  memory.addFact(`Resumo da sessão ${sessionId}: ${summary}`);
+  const summaryFact = `Resumo da sessão ${sessionId}: ${summary}`;
+  memory.addFact(summaryFact);
   memory.replaceHistory(sessionId, kept);
+  try {
+    await vectorStore.upsert(summaryFact, {
+      kind: "history_summary",
+      sessionId,
+      compactedAt: new Date().toISOString(),
+    });
+  } catch {
+    // Keep the compacted history and durable fact even if semantic persistence is unavailable.
+  }
 
   return {
     compacted: true,

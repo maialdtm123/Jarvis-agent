@@ -103,7 +103,7 @@ const server = createServer(async (req, res) => {
       memory.appendHistory(sessionId, { role: "user", content: message });
       memory.appendHistory(sessionId, { role: "assistant", content: reply });
 
-      await compactHistoryIfNeeded(memory, sessionId, (turns) => summarizeTurns(turns, ctx));
+      await compactHistoryIfNeeded(memory, sessionId, (turns) => summarizeTurns(turns, ctx), ctx.vectorStore);
 
       return send(res, 200, { reply, sessionId });
     } catch (e) {

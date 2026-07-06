@@ -42,6 +42,12 @@ describe("normaliseHistory", () => {
 describe("compactHistoryIfNeeded", () => {
   it("summarises the old window into memory and keeps only the recent turns", async () => {
     const memory = new Memory(memoryPath());
+    const upserts: Array<{ text: string; metadata: unknown }> = [];
+    const vectorStore = {
+      upsert: async (text: string, metadata: unknown) => {
+        upserts.push({ text, metadata });
+      },
+    };
     memory.appendHistory("session", { role: "user", content: "Pergunta 1" });
     memory.appendHistory("session", { role: "assistant", content: "Resposta 1" });
     memory.appendHistory("session", { role: "user", content: "Pergunta 2" });
@@ -53,6 +59,7 @@ describe("compactHistoryIfNeeded", () => {
       memory,
       "session",
       async (turns) => `Resumo de ${turns.length} turnos`,
+      vectorStore,
       { trigger: 4, keep: 2 },
     );
 
@@ -67,5 +74,15 @@ describe("compactHistoryIfNeeded", () => {
       { role: "assistant", content: "Resposta 3" },
     ]);
     expect(memory.facts()).toContain("Resumo da sessão session: Resumo de 4 turnos");
+    expect(upserts).toEqual([
+      {
+        text: "Resumo da sessão session: Resumo de 4 turnos",
+        metadata: expect.objectContaining({
+          kind: "history_summary",
+          sessionId: "session",
+          compactedAt: expect.any(String),
+        }),
+      },
+    ]);
   });
 });

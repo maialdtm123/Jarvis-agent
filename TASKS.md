@@ -32,7 +32,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - [x] **T2.3** @codex — `memory_recall` → kNN semântico top-K com score. `memory_save` → embed + upsert.
 - [x] **T2.4** @codex — Injeção no system: só top-K relevante ao turno (resolve R7).
 - [x] **T2.5** @codex — Compactação R8: resumo deslizante de histórico antigo via fast model, guardado como memória.
-- [ ] **T2.6** @claude — cross-review + validar que o recall melhora vs. baseline (mini-eval).
+- [x] **T2.6** @claude — cross-review + validar que o recall melhora vs. baseline (mini-eval).
 
 ## Fase 3 — Tools de agente (depende de D2, D4)
 
