@@ -21,6 +21,8 @@ export interface ToolContext {
   sessionId: string;
   memory: import("./memory.js").Memory;
   vectorStore: import("./vector-store.js").SqliteVectorStore;
+  /** Exact user message for gates that must not be satisfiable by the model alone. */
+  userMessage?: string;
 }
 
 /** A tool = schema + executable implementation. */

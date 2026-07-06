@@ -29,7 +29,26 @@ O **repo é o canal de comunicação**. O git é a sincronização. Não há lig
 
 ## Tools perigosas (Fase 3) — desenhar segurança primeiro
 - Filesystem: **allowlist de diretórios**, nunca fora do workspace configurado.
-- Shell: **allowlist de comandos** + timeout + gate de confirmação para destrutivos. Nunca execução cega.
+- Limitação conhecida do filesystem: `assertAllowedPath` usa `resolve()`, mas não
+  `realpath()`. Um symlink criado dentro de um diretório permitido pode apontar para
+  fora da allowlist. Risco aceite temporariamente para uso pessoal single-user; rever
+  antes de expor o servidor a outros utilizadores.
+- Shell (gate D4):
+  - recebe `command` e `args[]` separados; não aceita command lines, pipes,
+    redirecionamentos, expansão de variáveis ou outros operadores de shell;
+  - aceita apenas nomes simples de executável presentes em
+    `JARVIS_ALLOWED_COMMANDS`; a comparação é exata, sem paths ou aliases;
+  - valida `cwd` com a mesma allowlist de diretórios do filesystem;
+  - executa através do WSL2 sem shell intermédia, com timeout configurado e limitado,
+    limite de output e terminação do processo em timeout;
+  - comandos classificados como destrutivos nunca executam na primeira chamada. A
+    tool emite um token efémero ligado à sessão, comando e argumentos. A execução
+    requer um novo pedido do utilizador cujo texto seja exatamente
+    `CONFIRMAR <token>` e uma nova chamada da tool com o mesmo token;
+  - tokens de confirmação expiram, são single-use e qualquer alteração ao comando,
+    argumentos ou diretório invalida a confirmação;
+  - nunca adicionar shells (`sh`, `bash`, `zsh`, `cmd`, `powershell`) ou
+    interpretadores equivalentes à allowlist, pois reintroduzem execução arbitrária.
 - Se em dúvida sobre segurança de uma tool, **não faças merge** — escreve a questão em HANDOFF para o Claude rever.
 
 ## Definição de "feito" por tarefa

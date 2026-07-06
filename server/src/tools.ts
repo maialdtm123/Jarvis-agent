@@ -1,7 +1,57 @@
+import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Tool } from "./types.js";
+
+const SHELL_DEFAULT_TIMEOUT_MS = 15_000;
+const SHELL_MAX_TIMEOUT_MS = 60_000;
+const SHELL_MAX_OUTPUT_BYTES = 64 * 1024;
+const SHELL_CONFIRMATION_TTL_MS = 5 * 60_000;
+const FORBIDDEN_EXECUTABLES = new Set([
+  "bash",
+  "cmd",
+  "node",
+  "perl",
+  "php",
+  "powershell",
+  "pwsh",
+  "python",
+  "python3",
+  "ruby",
+  "sh",
+  "wsl",
+  "wsl.exe",
+  "zsh",
+]);
+
+interface RunCommandInput {
+  command: string;
+  args?: string[];
+  cwd?: string;
+  timeoutMs?: number;
+  confirmationToken?: string;
+}
+
+interface ShellExecution {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+type ShellExecutor = (
+  command: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number,
+) => Promise<ShellExecution>;
+
+interface PendingCommand {
+  sessionId: string;
+  fingerprint: string;
+  expiresAt: number;
+}
 
 /** Current date/time. */
 const datetime: Tool = {
@@ -67,6 +117,186 @@ function assertAllowedPath(target: string): string {
   }
   return resolved;
 }
+
+function allowedCommands(): Set<string> {
+  const raw = process.env.JARVIS_ALLOWED_COMMANDS ?? "pwd,ls,git,npm,cargo";
+  return new Set(
+    raw
+      .split(/[;,\s]+/)
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function shellTimeout(input: unknown): number {
+  const configured = Number(process.env.JARVIS_SHELL_TIMEOUT_MS ?? SHELL_DEFAULT_TIMEOUT_MS);
+  const fallback =
+    Number.isFinite(configured) && configured > 0 ? configured : SHELL_DEFAULT_TIMEOUT_MS;
+  const requested = Number(input ?? fallback);
+  if (!Number.isFinite(requested) || requested <= 0) {
+    throw new Error("timeoutMs tem de ser um número positivo.");
+  }
+  return Math.min(Math.trunc(requested), SHELL_MAX_TIMEOUT_MS);
+}
+
+function validateCommand(command: string, args: unknown): string[] {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(command)) {
+    throw new Error("Comando inválido: usa apenas o nome do executável, sem path ou operadores.");
+  }
+  const normalised = command.toLowerCase();
+  if (FORBIDDEN_EXECUTABLES.has(normalised)) {
+    throw new Error(`Comando proibido por segurança: ${command}`);
+  }
+  if (!allowedCommands().has(normalised)) {
+    throw new Error(`Comando fora do allowlist: ${command}`);
+  }
+  if (args !== undefined && !Array.isArray(args)) {
+    throw new Error("args tem de ser uma lista de strings.");
+  }
+  const values = (args ?? []) as unknown[];
+  if (values.length > 64) throw new Error("Demasiados argumentos (máximo: 64).");
+  const parsed = values.map((arg) => {
+    if (typeof arg !== "string") throw new Error("Todos os argumentos têm de ser strings.");
+    if (arg.length > 4096 || arg.includes("\0")) {
+      throw new Error("Argumento inválido ou demasiado longo.");
+    }
+    return arg;
+  });
+  if (parsed.reduce((total, arg) => total + arg.length, 0) > 16_384) {
+    throw new Error("Argumentos demasiado longos.");
+  }
+  return parsed;
+}
+
+export function isDestructiveCommand(command: string, args: string[]): boolean {
+  const executable = command.toLowerCase();
+  const lowerArgs = args.map((arg) => arg.toLowerCase());
+  if (["del", "erase", "mv", "rm", "rmdir", "shred", "unlink"].includes(executable)) return true;
+
+  if (executable === "git") {
+    if (lowerArgs.some((arg) => ["clean", "config", "reset", "restore"].includes(arg))) return true;
+    if (lowerArgs.includes("checkout") && lowerArgs.includes("--")) return true;
+    if (lowerArgs.includes("branch") && lowerArgs.includes("-d")) {
+      return true;
+    }
+    if (lowerArgs.includes("push") && lowerArgs.some((arg) => arg.includes("force"))) return true;
+  }
+
+  if (["npm", "pnpm", "yarn"].includes(executable)) {
+    return lowerArgs.some((arg) =>
+      ["add", "exec", "install", "remove", "uninstall", "update"].includes(arg),
+    );
+  }
+  if (executable === "cargo") {
+    return lowerArgs.some((arg) => ["clean", "install", "run", "uninstall"].includes(arg));
+  }
+  return false;
+}
+
+const executeInWsl: ShellExecutor = (command, args, cwd, timeoutMs) =>
+  new Promise((resolveExecution, rejectExecution) => {
+    execFile(
+      "wsl.exe",
+      ["--cd", cwd, "--", command, ...args],
+      {
+        encoding: "utf8",
+        maxBuffer: SHELL_MAX_OUTPUT_BYTES,
+        timeout: timeoutMs,
+        windowsHide: true,
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          const detail = [stdout, stderr, error.message].filter(Boolean).join("\n").trim();
+          rejectExecution(
+            new Error(
+              error.killed
+                ? `Comando excedeu o timeout de ${timeoutMs} ms.`
+                : detail || "Falha ao executar comando.",
+            ),
+          );
+          return;
+        }
+        resolveExecution({ stdout, stderr, exitCode: 0 });
+      },
+    );
+  });
+
+export function createRunCommandTool(
+  executor: ShellExecutor = executeInWsl,
+  createToken: () => string = () => randomBytes(8).toString("hex"),
+  now: () => number = Date.now,
+): Tool {
+  const pending = new Map<string, PendingCommand>();
+
+  return {
+    name: "run_command",
+    description:
+      "Executa no WSL2 um comando allowlisted, sem shell intermédia. Operações destrutivas exigem confirmação explícita do utilizador num novo pedido.",
+    input_schema: {
+      type: "object",
+      properties: {
+        command: { type: "string", description: "Nome exato do executável allowlisted" },
+        args: {
+          type: "array",
+          items: { type: "string" },
+          description: "Argumentos separados, sem operadores de shell",
+        },
+        cwd: { type: "string", description: "Diretório de trabalho allowlisted" },
+        timeoutMs: { type: "number", description: "Timeout, limitado a 60000 ms" },
+        confirmationToken: {
+          type: "string",
+          description: "Token devolvido anteriormente para confirmar uma operação destrutiva",
+        },
+      },
+      required: ["command"],
+    },
+    run: async (input: RunCommandInput, ctx) => {
+      try {
+        const command = String(input.command ?? "").trim();
+        const args = validateCommand(command, input.args);
+        const cwd = assertAllowedPath(String(input.cwd ?? allowedDirectoryRoots()[0]).trim());
+        const info = await stat(cwd);
+        if (!info.isDirectory()) return "Erro ao executar comando: cwd não é um diretório.";
+        const timeoutMs = shellTimeout(input.timeoutMs);
+        const fingerprint = JSON.stringify([command.toLowerCase(), args, cwd]);
+
+        for (const [token, request] of pending) {
+          if (request.expiresAt <= now()) pending.delete(token);
+        }
+
+        if (isDestructiveCommand(command, args)) {
+          const suppliedToken = String(input.confirmationToken ?? "").trim();
+          const request = suppliedToken ? pending.get(suppliedToken) : undefined;
+          const explicitlyConfirmed = ctx.userMessage?.trim() === `CONFIRMAR ${suppliedToken}`;
+          if (
+            !request ||
+            request.sessionId !== ctx.sessionId ||
+            request.fingerprint !== fingerprint ||
+            request.expiresAt <= now() ||
+            !explicitlyConfirmed
+          ) {
+            const token = createToken();
+            pending.set(token, {
+              sessionId: ctx.sessionId,
+              fingerprint,
+              expiresAt: now() + SHELL_CONFIRMATION_TTL_MS,
+            });
+            return `Confirmação necessária. Para executar este comando destrutivo, envia num novo pedido exatamente: CONFIRMAR ${token}`;
+          }
+          pending.delete(suppliedToken);
+        }
+
+        const result = await executor(command, args, cwd, timeoutMs);
+        const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
+        return output || `Comando concluído (exit ${result.exitCode}).`;
+      } catch (error) {
+        return `Erro ao executar comando: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  };
+}
+
+export const runCommandTool = createRunCommandTool();
 
 function formatSearchResults(
   results: Array<{ title?: string; url?: string; snippet?: string; content?: string }>,
@@ -372,6 +602,7 @@ export const ALL_TOOLS: Tool[] = [
   readFileTool,
   listDirTool,
   writeFileTool,
+  runCommandTool,
   memorySave,
   memoryRecall,
 ];

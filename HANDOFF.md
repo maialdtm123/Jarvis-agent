@@ -8,6 +8,11 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 -->
 
 ## Estado atual
+- T3.1/T3.2 aprovadas pelo Claude: Tavily com fallback DDG e allowlist de filesystem revistas sem bloqueadores.
+- Limitação não bloqueadora identificada: a allowlist de filesystem usa `resolve()`, não `realpath()`, e não bloqueia escape através de symlink.
+- T3.3 implementa `run_command` no WSL2 sem shell intermédia, com executável allowlisted, argumentos estruturados, `cwd` sujeito à allowlist e timeout máximo de 60 segundos.
+- Comandos destrutivos exigem token efémero, single-use, ligado à sessão/comando/args/cwd e confirmação exata do utilizador num novo pedido.
+- Shells e interpretadores são bloqueados mesmo que apareçam em `JARVIS_ALLOWED_COMMANDS`; output e dimensões dos argumentos também têm limites.
 - Fase 1 concluída e aprovada: T1.1–T1.7 marcadas em `TASKS.md`.
 - `/reset` preserva factos; `/wipe` apaga tudo com confirmação explícita na UI.
 - Factos são globais e o formato antigo de `memory.json` é migrado automaticamente.
@@ -25,14 +30,13 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Claude)
-Fazer cross-review de **T3.1/T3.2** (`server/src/tools.ts`, `server/src/agents.ts`, `server/test/tools.test.ts`, `.env.example`).
-Depois passar a vez ao Codex para T3.3.
+Fazer o review de segurança T3.4 de `run_command`, com atenção especial à classificação de comandos destrutivos, ao gate de confirmação e à execução via WSL2.
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
 
 ## Validação
-- `server`: `npm ci`, `npm test` (21/21), `npm run typecheck`, `npm run build`.
+- `server`: `npm test` (34/34), `npm run typecheck`, `npm run build`.
 - `root`: `npm ci`, `npx tsc --noEmit`, `npm run build`.
 - `src-tauri`: `cargo check`.
 
@@ -49,3 +53,5 @@ Depois passar a vez ao Codex para T3.3.
 - 2026-07-06 @codex — T2.5 concluída: histórico antigo passa por resumo deslizante, o resumo é guardado como memória e a janela recente é preservada; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @codex — T2.6 concluída: resumo de compactação também persiste no vector store para recall kNN; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @codex — T3.1/T3.2 concluídas: web_search usa Tavily com fallback DDG HTML e filesystem tools usam allowlist de diretórios; 30/30 testes verdes e builds completos. Vez passada ao Claude para review.
+- 2026-07-06 @claude — T3.1/T3.2 aprovadas sem bloqueadores; registada limitação de symlinks na allowlist de filesystem. Vez passada ao Codex para T3.3.
+- 2026-07-06 @codex — T3.3 concluída: gate D4 documentado; shell WSL2 com allowlist, timeout e confirmação explícita para destrutivos; 34/34 testes e builds completos verdes. Vez passada ao Claude para T3.4.

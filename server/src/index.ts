@@ -91,7 +91,7 @@ const server = createServer(async (req, res) => {
       const message = String(body.message ?? "").trim();
       if (!message) return send(res, 400, { error: "Campo 'message' em falta." });
 
-      const ctx: ToolContext = { sessionId, memory, vectorStore };
+      const ctx: ToolContext = { sessionId, memory, vectorStore, userMessage: message };
       const messages = [
         ...normaliseHistory(memory.getHistory(sessionId)),
         { role: "user" as const, content: message },

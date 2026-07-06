@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Memory } from "../src/memory.js";
 import {
+  createRunCommandTool,
+  isDestructiveCommand,
   listDirTool,
   memoryRecall,
   memorySave,
@@ -34,6 +36,8 @@ function memoryPath(): string {
 
 afterEach(() => {
   delete process.env.JARVIS_ALLOWED_DIRS;
+  delete process.env.JARVIS_ALLOWED_COMMANDS;
+  delete process.env.JARVIS_SHELL_TIMEOUT_MS;
   delete process.env.TAVILY_API_KEY;
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
@@ -215,5 +219,96 @@ describe("filesystem tools", () => {
     );
 
     expect(denied).toContain("fora do allowlist");
+  });
+});
+
+describe("shell tool security gate", () => {
+  it("runs an allowlisted command with structured args, allowed cwd and bounded timeout", async () => {
+    const allowedRoot = mkdtempSync(join(tmpdir(), "jarvis-shell-allowed-"));
+    tempDirs.push(allowedRoot);
+    process.env.JARVIS_ALLOWED_DIRS = allowedRoot;
+    process.env.JARVIS_ALLOWED_COMMANDS = "echo";
+    const executor = vi.fn(async () => ({ stdout: "ok\n", stderr: "", exitCode: 0 }));
+    const tool = createRunCommandTool(executor);
+
+    const reply = await tool.run(
+      { command: "echo", args: ["hello"], cwd: allowedRoot, timeoutMs: 120_000 },
+      { sessionId: "shell-test" } as ToolContext,
+    );
+
+    expect(reply).toBe("ok");
+    expect(executor).toHaveBeenCalledWith("echo", ["hello"], allowedRoot, 60_000);
+  });
+
+  it("rejects commands outside the allowlist, executable paths and interpreters", async () => {
+    const allowedRoot = mkdtempSync(join(tmpdir(), "jarvis-shell-policy-"));
+    tempDirs.push(allowedRoot);
+    process.env.JARVIS_ALLOWED_DIRS = allowedRoot;
+    process.env.JARVIS_ALLOWED_COMMANDS = "echo,node";
+    const executor = vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 }));
+    const tool = createRunCommandTool(executor);
+    const ctx = { sessionId: "shell-test" } as ToolContext;
+
+    expect(await tool.run({ command: "curl", cwd: allowedRoot }, ctx)).toContain(
+      "fora do allowlist",
+    );
+    expect(await tool.run({ command: "/bin/echo", cwd: allowedRoot }, ctx)).toContain(
+      "sem path ou operadores",
+    );
+    expect(
+      await tool.run(
+        { command: "node", args: ["-e", "process.exit()"], cwd: allowedRoot },
+        ctx,
+      ),
+    ).toContain("proibido por segurança");
+
+    const outsideRoot = mkdtempSync(join(tmpdir(), "jarvis-shell-outside-"));
+    tempDirs.push(outsideRoot);
+    expect(await tool.run({ command: "echo", cwd: outsideRoot }, ctx)).toContain(
+      "fora do allowlist",
+    );
+    expect(executor).not.toHaveBeenCalled();
+  });
+
+  it("requires an exact user confirmation on a later request for destructive commands", async () => {
+    const allowedRoot = mkdtempSync(join(tmpdir(), "jarvis-shell-confirm-"));
+    tempDirs.push(allowedRoot);
+    process.env.JARVIS_ALLOWED_DIRS = allowedRoot;
+    process.env.JARVIS_ALLOWED_COMMANDS = "git";
+    const executor = vi.fn(async () => ({ stdout: "removed", stderr: "", exitCode: 0 }));
+    const tool = createRunCommandTool(executor, () => "fixed-token", () => 1_000);
+    const command = {
+      command: "git",
+      args: ["clean", "-fd"],
+      cwd: allowedRoot,
+    };
+
+    const first = await tool.run(command, {
+      sessionId: "shell-test",
+      userMessage: "limpa o repo",
+    } as ToolContext);
+    expect(first).toContain("CONFIRMAR fixed-token");
+    expect(executor).not.toHaveBeenCalled();
+
+    const modelOnly = await tool.run(
+      { ...command, confirmationToken: "fixed-token" },
+      { sessionId: "shell-test", userMessage: "limpa o repo" } as ToolContext,
+    );
+    expect(modelOnly).toContain("Confirmação necessária");
+    expect(executor).not.toHaveBeenCalled();
+
+    const confirmed = await tool.run(
+      { ...command, confirmationToken: "fixed-token" },
+      { sessionId: "shell-test", userMessage: "CONFIRMAR fixed-token" } as ToolContext,
+    );
+    expect(confirmed).toBe("removed");
+    expect(executor).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies destructive command variants", () => {
+    expect(isDestructiveCommand("git", ["reset", "--hard"])).toBe(true);
+    expect(isDestructiveCommand("git", ["status", "--short"])).toBe(false);
+    expect(isDestructiveCommand("npm", ["uninstall", "package"])).toBe(true);
+    expect(isDestructiveCommand("cargo", ["check"])).toBe(false);
   });
 });
