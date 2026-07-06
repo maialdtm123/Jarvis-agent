@@ -50,7 +50,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 
 ## Fase 5 — Streaming + observabilidade
 
-- [ ] **T5.1** @codex — SSE `/chat` (tokens + eventos de tool) + render incremental na UI.
+- [x] **T5.1** @codex — SSE `/chat` (tokens + eventos de tool) + render incremental na UI.
 - [ ] **T5.2** @codex — Traces estruturados; tabs "Logs"/"Memória" consomem dados reais.
 - [ ] **T5.3** @claude — review final + atualizar README/PROGRESS.
 

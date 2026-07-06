@@ -7,7 +7,7 @@ import { compactHistoryIfNeeded, normaliseHistory } from "./history.js";
 import { Memory } from "./memory.js";
 import { ingestSource } from "./tools.js";
 import { SqliteVectorStore } from "./vector-store.js";
-import type { Tool, ToolContext } from "./types.js";
+import type { AgentEventSink, Tool, ToolContext } from "./types.js";
 
 const MAX_BODY_BYTES = 1_000_000; // 1 MB
 
@@ -16,6 +16,7 @@ export interface ServerDeps {
   vectorStore: SqliteVectorStore;
   knowledgeStore: SqliteVectorStore;
   ingestTool: Tool;
+  orchestrator?: typeof runOrchestrator;
 }
 
 function send(res: ServerResponse, status: number, body: unknown): void {
@@ -26,6 +27,23 @@ function send(res: ServerResponse, status: number, body: unknown): void {
     "access-control-allow-methods": "GET,POST,OPTIONS",
   });
   res.end(JSON.stringify(body));
+}
+
+function sendSseHeaders(res: ServerResponse): void {
+  res.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-transform",
+    connection: "keep-alive",
+    "access-control-allow-origin": "*",
+    "access-control-allow-headers": "content-type, x-jarvis-token",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+  });
+  res.write(": connected\n\n");
+}
+
+function writeSse(res: ServerResponse, event: string, data: unknown): void {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
 export function readBody(req: IncomingMessage): Promise<any> {
@@ -60,13 +78,19 @@ export function authorised(req: IncomingMessage): boolean {
   return req.headers["x-jarvis-token"] === config.apiToken;
 }
 
-function createContext(deps: ServerDeps, sessionId: string, userMessage?: string): ToolContext {
+function createContext(
+  deps: ServerDeps,
+  sessionId: string,
+  userMessage?: string,
+  events?: AgentEventSink,
+): ToolContext {
   return {
     sessionId,
     memory: deps.memory,
     vectorStore: deps.vectorStore,
     knowledgeStore: deps.knowledgeStore,
     userMessage,
+    events,
   };
 }
 
@@ -123,14 +147,32 @@ export function createRequestHandler(deps: ServerDeps) {
         const message = String(body.message ?? "").trim();
         if (!message) return send(res, 400, { error: "Campo 'message' em falta." });
 
-        const ctx = createContext(deps, sessionId, message);
+        const wantsStream =
+          req.headers.accept?.includes("text/event-stream") || body.stream === true;
+        const events: AgentEventSink | undefined = wantsStream
+          ? {
+              text: (event) => writeSse(res, "token", event),
+              toolStart: (event) => writeSse(res, "tool_start", event),
+              toolResult: (event) =>
+                writeSse(res, "tool_result", {
+                  ...event,
+                  output: event.output.slice(0, 1000),
+                }),
+            }
+          : undefined;
+        const ctx = createContext(deps, sessionId, message, events);
         const messages = [
           ...normaliseHistory(deps.memory.getHistory(sessionId)),
           { role: "user" as const, content: message },
         ];
 
         console.log(`\n[chat:${sessionId}] ${message}`);
-        const reply = await runOrchestrator(messages, ctx);
+        if (wantsStream) {
+          sendSseHeaders(res);
+          writeSse(res, "start", { sessionId });
+        }
+
+        const reply = await (deps.orchestrator ?? runOrchestrator)(messages, ctx);
 
         deps.memory.appendHistory(sessionId, { role: "user", content: message });
         deps.memory.appendHistory(sessionId, { role: "assistant", content: reply });
@@ -142,11 +184,20 @@ export function createRequestHandler(deps: ServerDeps) {
           ctx.vectorStore,
         );
 
+        if (wantsStream) {
+          writeSse(res, "done", { reply, sessionId });
+          return res.end();
+        }
+
         return send(res, 200, { reply, sessionId });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error("[request] erro:", msg);
-        return send(res, 500, { error: msg });
+        if (!res.headersSent) {
+          return send(res, 500, { error: msg });
+        }
+        writeSse(res, "error", { error: msg });
+        return res.end();
       }
     }
 

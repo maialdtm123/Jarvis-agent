@@ -2,7 +2,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRequestHandler, type ServerDeps } from "../src/index.js";
-import type { Tool } from "../src/types.js";
+import type { Tool, ToolContext, Turn } from "../src/types.js";
 
 const servers: Server[] = [];
 
@@ -32,6 +32,34 @@ function depsWithIngestTool(tool: Tool): ServerDeps {
     knowledgeStore: {} as ServerDeps["knowledgeStore"],
     ingestTool: tool,
   };
+}
+
+function depsWithChat(orchestrator: ServerDeps["orchestrator"]): ServerDeps {
+  const history: Turn[] = [];
+  return {
+    memory: {
+      getHistory: () => history,
+      appendHistory: (_sessionId: string, turn: Turn) => history.push(turn),
+      facts: () => [],
+      recall: () => [],
+    } as unknown as ServerDeps["memory"],
+    vectorStore: { query: async () => [], upsert: async () => undefined } as ServerDeps["vectorStore"],
+    knowledgeStore: {} as ServerDeps["knowledgeStore"],
+    ingestTool: { name: "ingest_source", description: "fake", input_schema: {}, run: vi.fn() },
+    orchestrator,
+  };
+}
+
+function sseEvents(raw: string): Array<{ event: string; data: any }> {
+  return raw
+    .split("\n\n")
+    .map((block) => block.trim())
+    .filter((block) => block.startsWith("event: "))
+    .map((block) => {
+      const event = block.match(/^event: (.+)$/m)?.[1] ?? "";
+      const data = block.match(/^data: (.+)$/m)?.[1] ?? "{}";
+      return { event, data: JSON.parse(data) };
+    });
 }
 
 describe("POST /ingest", () => {
@@ -89,5 +117,58 @@ describe("POST /ingest", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "Campo 'path' em falta." });
     expect(ingestTool.run).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /chat streaming", () => {
+  it("keeps the JSON response path for non-streaming chat", async () => {
+    const orchestrator = vi.fn(async () => "Resposta final");
+    const baseUrl = await listen(depsWithChat(orchestrator));
+
+    const response = await fetch(`${baseUrl}/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: "teste", sessionId: "json-test" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    await expect(response.json()).resolves.toEqual({
+      reply: "Resposta final",
+      sessionId: "json-test",
+    });
+  });
+
+  it("streams tokens and tool events as SSE while preserving the final reply", async () => {
+    const orchestrator = vi.fn(async (_messages: any, ctx: ToolContext) => {
+      ctx.events?.toolStart?.({ agent: "orchestrator", tool: "calculator" });
+      ctx.events?.toolResult?.({ agent: "orchestrator", tool: "calculator", output: "4" });
+      ctx.events?.text?.({ agent: "orchestrator", text: "Olá " });
+      ctx.events?.text?.({ agent: "orchestrator", text: "Lauro" });
+      return "Olá Lauro";
+    });
+    const baseUrl = await listen(depsWithChat(orchestrator));
+
+    const response = await fetch(`${baseUrl}/chat`, {
+      method: "POST",
+      headers: { accept: "text/event-stream", "content-type": "application/json" },
+      body: JSON.stringify({ message: "teste", sessionId: "stream-test" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const events = sseEvents(await response.text());
+
+    expect(events.map((event) => event.event)).toEqual([
+      "start",
+      "tool_start",
+      "tool_result",
+      "token",
+      "token",
+      "done",
+    ]);
+    expect(events[1].data).toMatchObject({ agent: "orchestrator", tool: "calculator" });
+    expect(events[3].data).toEqual({ agent: "orchestrator", text: "Olá " });
+    expect(events[5].data).toEqual({ reply: "Olá Lauro", sessionId: "stream-test" });
   });
 });

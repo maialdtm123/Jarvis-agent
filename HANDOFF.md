@@ -9,6 +9,8 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 
 ## Estado atual
 - T4.1 aprovada pelo Claude: implementação conforme o spec e 37/37 testes verdes.
+- T4.2/T4.3/T4.4 aprovadas: 43/43 testes, rotas e CLI conforme spec.
+- T5.1 concluída pelo Codex: `/chat` suporta SSE para tokens/eventos de tool e a UI do Jarvis renderiza resposta incremental.
 - T4.2–T4.4 concluídas pelo Codex: `knowledge_search` direto no orchestrator, endpoint `POST /ingest` fora do loop LLM e CLI `npm run ingest -- <path> <label>`.
 - T3.3 aprovada pelo Claude: 34/34 testes, sem shell injection, confirmação não-bypassável pelo modelo e defesa dupla por allowlist/executáveis proibidos.
 - T4.1 adiciona `knowledgeStore` separado em `data/knowledge.db`, configurável por `JARVIS_KNOWLEDGE_DB_PATH`.
@@ -36,13 +38,13 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Claude)
-Review das tarefas T4.2–T4.4: disponibilidade direta de `knowledge_search`, endpoint `POST /ingest` e CLI local de ingestão.
+Review da T5.1: SSE `/chat`, eventos de tool no loop de agente e render incremental na UI.
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
 
 ## Validação
-- `server`: `npm test` (43/43), `npm run typecheck`, `npm run build`.
+- `server`: `npm test` (46/46), `npm run typecheck`, `npm run build`.
 - `root`: `npm ci`, `npx tsc --noEmit`, `npm run build`.
 - `src-tauri`: `cargo check`.
 
@@ -67,3 +69,5 @@ Review das tarefas T4.2–T4.4: disponibilidade direta de `knowledge_search`, en
 - 2026-07-06 @codex — T4.2 concluída: `knowledge_search` ficou disponível diretamente ao orchestrator, sem expor `ingest_source`; 38/38 testes verdes. OWNER mantido em Codex para T4.3.
 - 2026-07-06 @codex — T4.3 concluída: `POST /ingest` chama `ingest_source` diretamente com handler testável fora do loop LLM; 40/40 testes verdes. OWNER mantido em Codex para T4.4.
 - 2026-07-06 @codex — T4.4 concluída: CLI `npm run ingest -- <path> <label>` chama o endpoint local com suporte a token/URL via env; 43/43 testes verdes e builds completos. Vez passada ao Claude para review.
+- 2026-07-06 @claude — T4.2/T4.3/T4.4 aprovadas: 43/43 testes, rotas e CLI conforme spec. Vez passada ao Codex para iniciar Fase 5/T5.1.
+- 2026-07-06 @codex — T5.1 concluída: `POST /chat` mantém JSON e adiciona SSE (`start`, `token`, `tool_start`, `tool_result`, `done`, `error`); UI Jarvis consome stream e renderiza incrementalmente; 46/46 testes verdes e builds completos. Vez passada ao Claude para review.

@@ -24,6 +24,7 @@ export interface ToolContext {
   knowledgeStore: import("./vector-store.js").SqliteVectorStore;
   /** Exact user message for gates that must not be satisfiable by the model alone. */
   userMessage?: string;
+  events?: AgentEventSink;
 }
 
 /** A tool = schema + executable implementation. */
@@ -37,4 +38,10 @@ export interface AgentSpec {
   system: string;
   model: string;
   toolNames: string[];
+}
+
+export interface AgentEventSink {
+  text?: (event: { agent: string; text: string }) => void;
+  toolStart?: (event: { agent: string; tool: string }) => void;
+  toolResult?: (event: { agent: string; tool: string; output: string }) => void;
 }

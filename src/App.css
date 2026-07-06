@@ -259,6 +259,25 @@ nav {
   30% { opacity: 1; }
 }
 
+.tool-stream {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool-stream span {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: rgba(77, 163, 255, 0.12);
+  border: 1px solid rgba(77, 163, 255, 0.26);
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .error {
   align-self: center;
   padding: 10px 14px;

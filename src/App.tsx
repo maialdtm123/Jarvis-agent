@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { PROVIDERS, type ChatMessage, type Provider } from "./types";
-import { jarvisHealth, jarvisReset, jarvisWipe, sendToProvider } from "./api";
+import { jarvisHealth, jarvisReset, jarvisWipe, sendToProvider, streamJarvisAgent } from "./api";
 
 type View = "chat" | "agents" | "memory" | "logs" | "settings";
 
@@ -30,6 +30,7 @@ export default function App() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [liveTools, setLiveTools] = useState<string[]>([]);
   const [online, setOnline] = useState<boolean | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -71,14 +72,44 @@ export default function App() {
     setMessages(next);
     setInput("");
     setBusy(true);
+    setLiveTools([]);
 
     try {
-      const reply = await sendToProvider(provider, next, SESSION_ID);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      if (provider === "jarvis") {
+        const assistantIndex = next.length;
+        setMessages([...next, { role: "assistant", content: "" }]);
+        const finalReply = await streamJarvisAgent(text, SESSION_ID, {
+          onToken: (chunk) => {
+            setMessages((prev) =>
+              prev.map((message, index) =>
+                index === assistantIndex
+                  ? { ...message, content: `${message.content}${chunk}` }
+                  : message,
+              ),
+            );
+          },
+          onToolEvent: (event) => {
+            const marker =
+              event.type === "tool_start"
+                ? `${event.agent}: ${event.tool}`
+                : `${event.agent}: ${event.tool} ok`;
+            setLiveTools((prev) => [...prev.slice(-3), marker]);
+          },
+        });
+        setMessages((prev) =>
+          prev.map((message, index) =>
+            index === assistantIndex ? { ...message, content: finalReply } : message,
+          ),
+        );
+      } else {
+        const reply = await sendToProvider(provider, next, SESSION_ID);
+        setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      }
     } catch (e) {
       setError(String(e));
     } finally {
       setBusy(false);
+      setLiveTools([]);
     }
   }
 
@@ -178,12 +209,20 @@ export default function App() {
                   <div className="text">{m.content}</div>
                 </div>
               ))}
-              {busy && (
+              {busy && (provider !== "jarvis" || liveTools.length > 0) && (
                 <div className="bubble assistant">
                   <div className="who">Jarvis</div>
-                  <div className="typing">
-                    <span /> <span /> <span />
-                  </div>
+                  {provider === "jarvis" && liveTools.length ? (
+                    <div className="tool-stream">
+                      {liveTools.map((tool, i) => (
+                        <span key={`${tool}-${i}`}>{tool}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="typing">
+                      <span /> <span /> <span />
+                    </div>
+                  )}
                 </div>
               )}
               {error && <div className="error">⚠️ {error}</div>}

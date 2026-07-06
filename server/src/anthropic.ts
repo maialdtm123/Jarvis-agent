@@ -219,6 +219,15 @@ interface RunOpts {
   maxSteps?: number;
 }
 
+function emitTextChunks(ctx: ToolContext, agent: string, text: string): void {
+  const sink = ctx.events?.text;
+  if (!sink) return;
+  const chunks = text.match(/\S+\s*/g) ?? [text];
+  for (const chunk of chunks) {
+    if (chunk) sink({ agent, text: chunk });
+  }
+}
+
 export async function runAgent(opts: RunOpts): Promise<string> {
   const schemas: ToolSchema[] = opts.tools.map(({ name, description, input_schema }) => ({
     name,
@@ -232,7 +241,9 @@ export async function runAgent(opts: RunOpts): Promise<string> {
     const result = await callLLM({ model: opts.model, messages, tools: schemas });
 
     if (result.done || result.toolCalls.length === 0) {
-      return result.text.trim() || "(sem resposta)";
+      const finalText = result.text.trim() || "(sem resposta)";
+      if (opts.label === "orchestrator") emitTextChunks(opts.ctx, opts.label, finalText);
+      return finalText;
     }
 
     // Record the assistant's tool-call turn in our internal (OpenAI) format.
@@ -249,15 +260,19 @@ export async function runAgent(opts: RunOpts): Promise<string> {
     for (const call of result.toolCalls) {
       const tool = opts.tools.find((t) => t.name === call.name);
       let out: string;
+      opts.ctx.events?.toolStart?.({ agent: opts.label, tool: call.name });
       try {
         out = tool ? String(await tool.run(call.args, opts.ctx)) : `Tool desconhecida: ${call.name}`;
       } catch (e) {
         out = `Erro na tool ${call.name}: ${e instanceof Error ? e.message : String(e)}`;
       }
       log(opts.label, `tool ${call.name} -> ${out.slice(0, 100).replace(/\n/g, " ")}`);
+      opts.ctx.events?.toolResult?.({ agent: opts.label, tool: call.name, output: out });
       messages.push({ role: "tool", tool_call_id: call.id, content: out });
     }
   }
 
-  return "Atingi o limite de passos sem concluir. Tenta reformular.";
+  const limitReply = "Atingi o limite de passos sem concluir. Tenta reformular.";
+  if (opts.label === "orchestrator") emitTextChunks(opts.ctx, opts.label, limitReply);
+  return limitReply;
 }
