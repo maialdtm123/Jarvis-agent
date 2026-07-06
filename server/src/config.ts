@@ -59,6 +59,11 @@ export const config = {
   provider,
   /** Ollama OpenAI-compatible endpoint (local, no key). */
   ollamaUrl: process.env.OLLAMA_URL ?? "http://localhost:11434/v1/chat/completions",
+  /** Ollama native endpoint used to generate one embedding per request. */
+  ollamaEmbeddingsUrl:
+    process.env.OLLAMA_EMBEDDINGS_URL ?? "http://localhost:11434/api/embeddings",
+  /** Local embedding model used by the semantic memory pipeline. */
+  embeddingModel: process.env.JARVIS_EMBEDDING_MODEL ?? "nomic-embed-text",
   /** Optional shared secret. If set, /chat and /reset require header x-jarvis-token. */
   apiToken: process.env.JARVIS_API_TOKEN ?? "",
   port: Number(process.env.PORT ?? 8791),

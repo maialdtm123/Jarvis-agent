@@ -27,7 +27,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 
 ## Fase 2 — Memória RAG (depende de D1)
 
-- [ ] **T2.1** @codex — Cliente de embeddings (Ollama `/api/embeddings`, modelo configurável).
+- [x] **T2.1** @codex — Cliente de embeddings (Ollama `/api/embeddings`, modelo configurável).
 - [ ] **T2.2** @codex — Camada de vector store (conforme D1) com `upsert(text, meta)` e `query(text, k)`.
 - [ ] **T2.3** @codex — `memory_recall` → kNN semântico top-K com score. `memory_save` → embed + upsert.
 - [ ] **T2.4** @codex — Injeção no system: só top-K relevante ao turno (resolve R7).
@@ -58,3 +58,4 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - 2026-07-05 @claude — Review + PLAN + TASKS criados. Próximo: @lauro responde D1–D4; @codex arranca Fase 1 (T1.1–T1.6, não dependem de decisões).
 - 2026-07-05 @codex — Fase 1 concluída (T1.1–T1.6), D1–D4 registadas. Próximo: @claude faz T1.7.
 - 2026-07-06 @claude — T1.7 aprovada: cross-review de `memory.ts`, `index.ts`, `agents.ts`, `history.ts` e `App.tsx`; 12/12 testes verdes, sem bloqueadores. Próximo: @codex inicia T2.1.
+- 2026-07-06 @codex — T2.1 concluída: cliente Ollama `/api/embeddings`, modelo/URL configuráveis, timeout, validação e testes. Próximo: @claude revê T2.1.
