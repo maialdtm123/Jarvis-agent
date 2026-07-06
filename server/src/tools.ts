@@ -1,4 +1,7 @@
-﻿import type { Tool } from "./types.js";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Tool } from "./types.js";
 
 /** Current date/time. */
 const datetime: Tool = {
@@ -37,11 +40,145 @@ export const calculator: Tool = {
   },
 };
 
-/** Free web lookup via DuckDuckGo Instant Answer (no API key required). */
-const webSearch: Tool = {
+function tavilyApiKey(): string {
+  return process.env.TAVILY_API_KEY ?? process.env.JARVIS_TAVILY_API_KEY ?? "";
+}
+
+function allowedDirectoryRoots(): string[] {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  const raw = process.env.JARVIS_ALLOWED_DIRS?.trim();
+  const roots = (raw ? raw.split(/[;,]/) : [repoRoot])
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => resolve(entry));
+  return [...new Set(roots.length ? roots : [repoRoot])];
+}
+
+function isWithinRoot(candidate: string, root: string): boolean {
+  const rel = relative(root, candidate);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function assertAllowedPath(target: string): string {
+  const resolved = resolve(target);
+  const roots = allowedDirectoryRoots();
+  if (!roots.some((root) => isWithinRoot(resolved, root))) {
+    throw new Error(`Path fora do allowlist: ${target}`);
+  }
+  return resolved;
+}
+
+function formatSearchResults(
+  results: Array<{ title?: string; url?: string; snippet?: string; content?: string }>,
+): string {
+  const lines = results
+    .map((result) => {
+      const title = String(result.title ?? result.url ?? "Resultado").trim();
+      const url = String(result.url ?? "").trim();
+      const snippet = String(result.snippet ?? result.content ?? "").trim();
+      if (!title && !url && !snippet) return "";
+      const head = url ? `${title} — ${url}` : title;
+      return snippet ? `${head}\n  ${snippet}` : head;
+    })
+    .filter(Boolean);
+  return lines.join("\n");
+}
+
+async function searchTavily(query: string): Promise<string | null> {
+  const apiKey = tavilyApiKey();
+  if (!apiKey) return null;
+
+  const res = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      search_depth: "basic",
+      max_results: 5,
+      include_answer: true,
+      include_raw_content: false,
+      include_favicon: false,
+      topic: "general",
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Tavily ${res.status}: ${await res.text()}`);
+  }
+
+  const data: any = await res.json();
+  const lines: string[] = [];
+  const answer = typeof data.answer === "string" ? data.answer.trim() : "";
+  if (answer) lines.push(answer);
+
+  const results = Array.isArray(data.results) ? data.results : [];
+  const formatted = formatSearchResults(
+    results.slice(0, 5).map((item: any) => ({
+      title: item.title,
+      url: item.url,
+      snippet: item.content ?? item.snippet,
+    })),
+  );
+  if (formatted) {
+    if (lines.length) lines.push("");
+    lines.push(`Resultados Tavily:\n${formatted}`);
+  }
+
+  return lines.join("\n").trim() || null;
+}
+
+function decodeDuckDuckGoUrl(href: string): string {
+  try {
+    const parsed = new URL(href, "https://html.duckduckgo.com");
+    const uddg = parsed.searchParams.get("uddg");
+    return uddg ? decodeURIComponent(uddg) : parsed.toString();
+  } catch {
+    return href;
+  }
+}
+
+async function searchDuckDuckGoHtml(query: string): Promise<string> {
+  const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+    headers: { "user-agent": "jarvis-agent/0.1" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) return `Pesquisa DDG falhou (HTTP ${res.status}).`;
+
+  const html = await res.text();
+  const resultBlocks = [...html.matchAll(/<div class="result[^"]*">([\s\S]*?)<\/div>\s*<\/div>/gi)];
+  const results: Array<{ title: string; url: string; snippet: string }> = [];
+
+  for (const block of resultBlocks) {
+    const chunk = block[1];
+    const titleMatch = chunk.match(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+    if (!titleMatch) continue;
+    const snippetMatch = chunk.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i);
+    const title = titleMatch[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const url = decodeDuckDuckGoUrl(titleMatch[1]);
+    const snippet = (snippetMatch?.[1] ?? "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    results.push({ title, url, snippet });
+    if (results.length >= 5) break;
+  }
+
+  if (!results.length) {
+    return "Sem resultado direto. Tenta uma query mais específica.";
+  }
+
+  return formatSearchResults(results);
+}
+
+/** Free web lookup via Tavily with DDG HTML fallback. */
+export const webSearch: Tool = {
   name: "web_search",
   description:
-    "Pesquisa rápida na web (DuckDuckGo Instant Answer). Bom para factos, definições e resumos. Sem chave.",
+    "Pesquisa na web via Tavily e, se falhar ou não houver chave, faz fallback para scraping HTML do DuckDuckGo.",
   input_schema: {
     type: "object",
     properties: { query: { type: "string", description: "O que pesquisar" } },
@@ -50,26 +187,18 @@ const webSearch: Tool = {
   run: async (input: { query: string }) => {
     const q = String(input.query ?? "").trim();
     if (!q) return "Query vazia.";
+
     try {
-      const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`;
-      const res = await fetch(url, {
-        headers: { "user-agent": "jarvis-agent/0.1" },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) return `Pesquisa falhou (HTTP ${res.status}).`;
-      const data: any = await res.json();
-      if (data.AbstractText) {
-        return `${data.AbstractText}${data.AbstractURL ? `\nFonte: ${data.AbstractURL}` : ""}`;
-      }
-      const related = (data.RelatedTopics ?? [])
-        .map((t: any) => t.Text)
-        .filter(Boolean)
-        .slice(0, 5);
-      if (related.length) return `Resultados relacionados:\n- ${related.join("\n- ")}`;
-      if (data.Answer) return String(data.Answer);
-      return "Sem resultado direto. Tenta uma query mais específica.";
-    } catch (e) {
-      return `Erro na pesquisa: ${e instanceof Error ? e.message : String(e)}`;
+      const tavily = await searchTavily(q);
+      if (tavily) return tavily;
+    } catch {
+      // Fall through to DDG HTML scraping.
+    }
+
+    try {
+      return await searchDuckDuckGoHtml(q);
+    } catch (error) {
+      return `Erro na pesquisa: ${error instanceof Error ? error.message : String(error)}`;
     }
   },
 };
@@ -107,6 +236,79 @@ const fetchUrl: Tool = {
       return text.slice(0, 6000) || "Página sem texto legível.";
     } catch (e) {
       return `Erro ao ler a página: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  },
+};
+
+/** Filesystem tools are allowlisted to configured workspace roots. */
+export const readFileTool: Tool = {
+  name: "read_file",
+  description: "Lê um ficheiro de texto dentro de diretórios allowlisted.",
+  input_schema: {
+    type: "object",
+    properties: { path: { type: "string", description: "Caminho do ficheiro" } },
+    required: ["path"],
+  },
+  run: async (input: { path: string }) => {
+    const path = String(input.path ?? "").trim();
+    if (!path) return "Path vazio.";
+    try {
+      const target = assertAllowedPath(path);
+      const info = await stat(target);
+      if (!info.isFile()) return "O caminho não é um ficheiro.";
+      return (await readFile(target, "utf8")).slice(0, 20_000);
+    } catch (error) {
+      return `Erro ao ler o ficheiro: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
+};
+
+export const listDirTool: Tool = {
+  name: "list_dir",
+  description: "Lista o conteúdo de um diretório dentro de allowlist.",
+  input_schema: {
+    type: "object",
+    properties: { path: { type: "string", description: "Caminho do diretório" } },
+  },
+  run: async (input: { path?: string }) => {
+    const path = String(input.path ?? ".").trim() || ".";
+    try {
+      const target = assertAllowedPath(path);
+      const info = await stat(target);
+      if (!info.isDirectory()) return "O caminho não é um diretório.";
+      const entries = await readdir(target, { withFileTypes: true });
+      if (!entries.length) return "Diretório vazio.";
+      return entries
+        .map((entry) => `• ${entry.name}${entry.isDirectory() ? "/" : ""}`)
+        .join("\n");
+    } catch (error) {
+      return `Erro ao listar o diretório: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
+};
+
+export const writeFileTool: Tool = {
+  name: "write_file",
+  description: "Escreve um ficheiro de texto dentro de diretórios allowlisted.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "Caminho do ficheiro" },
+      content: { type: "string", description: "Conteúdo a escrever" },
+    },
+    required: ["path", "content"],
+  },
+  run: async (input: { path: string; content: string }) => {
+    const path = String(input.path ?? "").trim();
+    const content = String(input.content ?? "");
+    if (!path) return "Path vazio.";
+    try {
+      const target = assertAllowedPath(path);
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, content, "utf8");
+      return `Escrito ${content.length} caracteres em ${target}.`;
+    } catch (error) {
+      return `Erro ao escrever o ficheiro: ${error instanceof Error ? error.message : String(error)}`;
     }
   },
 };
@@ -167,6 +369,9 @@ export const ALL_TOOLS: Tool[] = [
   calculator,
   webSearch,
   fetchUrl,
+  readFileTool,
+  listDirTool,
+  writeFileTool,
   memorySave,
   memoryRecall,
 ];

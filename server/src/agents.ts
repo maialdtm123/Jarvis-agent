@@ -149,7 +149,7 @@ const ORCHESTRATOR_SYSTEM = `És o Jarvis, o assistente pessoal do Lauro (portug
 És a camada de orquestração: analisas o pedido e decides como o resolver.
 - Para tarefas simples, responde diretamente.
 - Para tarefas que beneficiam de foco, usa a tool 'delegate' para um especialista (researcher/coder/memory/general).
-- Usa tools diretas (datetime, calculator, web_search, memory_save, memory_recall) quando fizer sentido.
+ - Usa tools diretas (datetime, calculator, web_search, read_file, list_dir, write_file, memory_save, memory_recall) quando fizer sentido.
 - Guarda na memória factos duradouros sobre o Lauro quando os descobrires.
 Sintetiza sempre uma resposta final clara para o utilizador. Nunca exponhas detalhes internos das tools a menos que ajudem.`;
 
@@ -165,6 +165,9 @@ export async function runOrchestrator(
       "calculator",
       "web_search",
       "fetch_url",
+      "read_file",
+      "list_dir",
+      "write_file",
       "memory_save",
       "memory_recall",
     ]),

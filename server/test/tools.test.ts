@@ -1,9 +1,16 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Memory } from "../src/memory.js";
-import { memoryRecall, memorySave } from "../src/tools.js";
+import {
+  listDirTool,
+  memoryRecall,
+  memorySave,
+  readFileTool,
+  webSearch,
+  writeFileTool,
+} from "../src/tools.js";
 import { SqliteVectorStore, type EmbeddingProvider } from "../src/vector-store.js";
 import type { ToolContext } from "../src/types.js";
 
@@ -26,9 +33,12 @@ function memoryPath(): string {
 }
 
 afterEach(() => {
+  delete process.env.JARVIS_ALLOWED_DIRS;
+  delete process.env.TAVILY_API_KEY;
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
   }
+  vi.restoreAllMocks();
 });
 
 function createContext(
@@ -115,5 +125,95 @@ describe("memory tools", () => {
     expect(reply).toBe("• Gosta de TypeScript");
 
     vectorStore.close();
+  });
+});
+
+describe("web search", () => {
+  it("uses Tavily when the API responds successfully", async () => {
+    process.env.TAVILY_API_KEY = "tvly-test";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        answer: "Resposta Tavily",
+        results: [
+          {
+            title: "Tavily result",
+            url: "https://example.com",
+            content: "Snippet Tavily",
+          },
+        ],
+      }),
+    } as Response);
+
+    const reply = await webSearch.run({ query: "jarvis" }, {} as ToolContext);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.tavily.com/search");
+    expect(reply).toContain("Resposta Tavily");
+    expect(reply).toContain("Tavily result");
+    expect(reply).toContain("https://example.com");
+    expect(reply).toContain("Snippet Tavily");
+  });
+
+  it("falls back to DuckDuckGo HTML scraping when Tavily fails", async () => {
+    process.env.TAVILY_API_KEY = "tvly-test";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: async () => "boom",
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <div class="result results_links results_links_deep web-result">
+            <div class="links_main links_deep result__body">
+              <h2 class="result__title">
+                <a class="result__a" href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org">
+                  DDG result
+                </a>
+              </h2>
+              <a class="result__snippet">Snippet DDG</a>
+            </div>
+          </div>
+        `,
+      } as Response);
+
+    const reply = await webSearch.run({ query: "jarvis" }, {} as ToolContext);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toContain("html.duckduckgo.com/html/?q=");
+    expect(reply).toContain("DDG result");
+    expect(reply).toContain("https://example.org");
+    expect(reply).toContain("Snippet DDG");
+  });
+});
+
+describe("filesystem tools", () => {
+  it("list_dir, read_file and write_file are restricted to the allowlist", async () => {
+    const allowedRoot = mkdtempSync(join(tmpdir(), "jarvis-fs-allowed-"));
+    tempDirs.push(allowedRoot);
+    process.env.JARVIS_ALLOWED_DIRS = allowedRoot;
+
+    const nested = join(allowedRoot, "notes");
+    const file = join(nested, "hello.txt");
+
+    expect(await writeFileTool.run({ path: file, content: "olá mundo" }, {} as ToolContext)).toContain(
+      "Escrito 9 caracteres",
+    );
+    expect(await readFileTool.run({ path: file }, {} as ToolContext)).toBe("olá mundo");
+    expect(await listDirTool.run({ path: nested }, {} as ToolContext)).toBe("• hello.txt");
+
+    const outsideRoot = mkdtempSync(join(tmpdir(), "jarvis-fs-outside-"));
+    tempDirs.push(outsideRoot);
+    const outsideFile = join(outsideRoot, "blocked.txt");
+
+    const denied = await writeFileTool.run(
+      { path: outsideFile, content: "blocked" },
+      {} as ToolContext,
+    );
+
+    expect(denied).toContain("fora do allowlist");
   });
 });

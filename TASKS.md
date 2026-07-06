@@ -36,8 +36,8 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 
 ## Fase 3 — Tools de agente (depende de D2, D4)
 
-- [ ] **T3.1** @codex — web_search real (D2) + fallback. Substitui DDG Instant Answer.
-- [ ] **T3.2** @codex — Filesystem tools (`read_file`/`list_dir`/`write_file`) com allowlist de diretórios.
+- [x] **T3.1** @codex — web_search real (D2) + fallback. Substitui DDG Instant Answer.
+- [x] **T3.2** @codex — Filesystem tools (`read_file`/`list_dir`/`write_file`) com allowlist de diretórios.
 - [ ] **T3.3** @codex — (se D4=sim) Shell tool com allowlist + timeout + gate de confirmação. Segurança primeiro.
 - [ ] **T3.4** @claude — review de segurança das tools perigosas antes de merge.
 

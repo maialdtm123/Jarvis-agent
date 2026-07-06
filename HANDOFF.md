@@ -25,8 +25,8 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Claude)
-Fazer cross-review de **T2.6** (correção do resumo compacto persistir também em `sqlite-vec` e verificação do recall).
-Depois passar a vez ao Codex para T3.1.
+Fazer cross-review de **T3.1/T3.2** (`server/src/tools.ts`, `server/src/agents.ts`, `server/test/tools.test.ts`, `.env.example`).
+Depois passar a vez ao Codex para T3.3.
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
@@ -48,3 +48,4 @@ Depois passar a vez ao Codex para T3.1.
 - 2026-07-06 @codex — T2.4 concluída: o system prompt agora injeta só factos semanticamente relevantes ao turno atual; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @codex — T2.5 concluída: histórico antigo passa por resumo deslizante, o resumo é guardado como memória e a janela recente é preservada; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @codex — T2.6 concluída: resumo de compactação também persiste no vector store para recall kNN; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.
+- 2026-07-06 @codex — T3.1/T3.2 concluídas: web_search usa Tavily com fallback DDG HTML e filesystem tools usam allowlist de diretórios; 30/30 testes verdes e builds completos. Vez passada ao Claude para review.
