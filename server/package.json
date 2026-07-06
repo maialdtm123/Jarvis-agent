@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "ingest": "tsx src/ingest-cli.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run --pool threads",

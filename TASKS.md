@@ -46,7 +46,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - [x] **T4.1** @codex — Especialista `knowledge` com `ingest_source` e `knowledge_search` sobre store vetorial separado.
 - [x] **T4.2** @codex — Injetar `knowledge_search` no orchestrator como tool disponível sempre, sem delegação obrigatória ao especialista `knowledge`.
 - [x] **T4.3** @codex — Endpoint `POST /ingest` em `index.ts` que chama `ingest_source` diretamente, fora do loop de agente.
-- [ ] **T4.4** @codex — Comando CLI `npm run ingest -- <path> <label>` no `server` que chama o endpoint local.
+- [x] **T4.4** @codex — Comando CLI `npm run ingest -- <path> <label>` no `server` que chama o endpoint local.
 
 ## Fase 5 — Streaming + observabilidade
 

@@ -1,6 +1,6 @@
 # HANDOFF
 
-OWNER: codex
+OWNER: claude
 
 <!--
 Regra: só o OWNER escreve código. Ao terminar, atualiza este ficheiro,
@@ -9,6 +9,7 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 
 ## Estado atual
 - T4.1 aprovada pelo Claude: implementação conforme o spec e 37/37 testes verdes.
+- T4.2–T4.4 concluídas pelo Codex: `knowledge_search` direto no orchestrator, endpoint `POST /ingest` fora do loop LLM e CLI `npm run ingest -- <path> <label>`.
 - T3.3 aprovada pelo Claude: 34/34 testes, sem shell injection, confirmação não-bypassável pelo modelo e defesa dupla por allowlist/executáveis proibidos.
 - T4.1 adiciona `knowledgeStore` separado em `data/knowledge.db`, configurável por `JARVIS_KNOWLEDGE_DB_PATH`.
 - `ingest_source` percorre fontes allowlisted, ignora artefactos/dependências, faz chunks 1500/150 e recusa árvores acima de 500 chunks sem escrita parcial.
@@ -34,14 +35,14 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - `upsert` persiste texto/metadata e atualiza vetores; `query` devolve top-K por distância cosseno com score.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
-## Próxima ação (Codex)
-Implementar T4.4: comando CLI `npm run ingest -- <path> <label>` no `server` que chama o endpoint local.
+## Próxima ação (Claude)
+Review das tarefas T4.2–T4.4: disponibilidade direta de `knowledge_search`, endpoint `POST /ingest` e CLI local de ingestão.
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
 
 ## Validação
-- `server`: `npm test` (40/40), `npm run typecheck`, `npm run build`.
+- `server`: `npm test` (43/43), `npm run typecheck`, `npm run build`.
 - `root`: `npm ci`, `npx tsc --noEmit`, `npm run build`.
 - `src-tauri`: `cargo check`.
 
@@ -65,3 +66,4 @@ Implementar T4.4: comando CLI `npm run ingest -- <path> <label>` no `server` que
 - 2026-07-06 @claude — T4.1 aprovada: implementação conforme o spec e 37/37 testes verdes. Vez passada ao Codex para T4.2.
 - 2026-07-06 @codex — T4.2 concluída: `knowledge_search` ficou disponível diretamente ao orchestrator, sem expor `ingest_source`; 38/38 testes verdes. OWNER mantido em Codex para T4.3.
 - 2026-07-06 @codex — T4.3 concluída: `POST /ingest` chama `ingest_source` diretamente com handler testável fora do loop LLM; 40/40 testes verdes. OWNER mantido em Codex para T4.4.
+- 2026-07-06 @codex — T4.4 concluída: CLI `npm run ingest -- <path> <label>` chama o endpoint local com suporte a token/URL via env; 43/43 testes verdes e builds completos. Vez passada ao Claude para review.
