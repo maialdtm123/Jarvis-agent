@@ -157,9 +157,23 @@ const ORCHESTRATOR_SYSTEM = `És o Jarvis, o assistente pessoal do Lauro (portug
 És a camada de orquestração: analisas o pedido e decides como o resolver.
 - Para tarefas simples, responde diretamente.
 - Para tarefas que beneficiam de foco, usa a tool 'delegate' para um especialista (researcher/coder/knowledge/memory/general).
- - Usa tools diretas (datetime, calculator, web_search, read_file, list_dir, write_file, run_command, memory_save, memory_recall) quando fizer sentido.
+ - Usa tools diretas (datetime, calculator, web_search, fetch_url, read_file, list_dir, write_file, run_command, memory_save, memory_recall, knowledge_search) quando fizer sentido.
 - Guarda na memória factos duradouros sobre o Lauro quando os descobrires.
 Sintetiza sempre uma resposta final clara para o utilizador. Nunca exponhas detalhes internos das tools a menos que ajudem.`;
+
+export const ORCHESTRATOR_DIRECT_TOOL_NAMES = [
+  "datetime",
+  "calculator",
+  "web_search",
+  "fetch_url",
+  "read_file",
+  "list_dir",
+  "write_file",
+  "run_command",
+  "memory_save",
+  "memory_recall",
+  "knowledge_search",
+];
 
 /** Layer 0 — the orchestrator the gateway calls. */
 export async function runOrchestrator(
@@ -168,18 +182,7 @@ export async function runOrchestrator(
 ): Promise<string> {
   const orchestratorTools: Tool[] = [
     delegateTool,
-    ...pickTools([
-      "datetime",
-      "calculator",
-      "web_search",
-      "fetch_url",
-      "read_file",
-      "list_dir",
-      "write_file",
-      "run_command",
-      "memory_save",
-      "memory_recall",
-    ]),
+    ...pickTools(ORCHESTRATOR_DIRECT_TOOL_NAMES),
   ];
   const currentQuery = messages[messages.length - 1]?.content ?? "";
   const system = await withRelevantFacts(ORCHESTRATOR_SYSTEM, currentQuery, ctx);

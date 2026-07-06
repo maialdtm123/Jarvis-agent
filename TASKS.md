@@ -41,11 +41,12 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - [x] **T3.3** @codex — Shell tool WSL2 com allowlist, argumentos estruturados, timeout e gate de confirmação explícita para destrutivos.
 - [x] **T3.4** @claude — review de segurança das tools perigosas aprovado sem bloqueadores.
 
-## Fase 4 — Knowledge + reflexão
+## Fase 4 — Knowledge + ingestão
 
 - [x] **T4.1** @codex — Especialista `knowledge` com `ingest_source` e `knowledge_search` sobre store vetorial separado.
-- [ ] **T4.2** @codex — Passo de reflexão pós-resposta (fast model) que extrai factos novos com dedup semântico.
-- [ ] **T4.3** @claude — review: garantir que só grava sinal, não ruído.
+- [x] **T4.2** @codex — Injetar `knowledge_search` no orchestrator como tool disponível sempre, sem delegação obrigatória ao especialista `knowledge`.
+- [ ] **T4.3** @codex — Endpoint `POST /ingest` em `index.ts` que chama `ingest_source` diretamente, fora do loop de agente.
+- [ ] **T4.4** @codex — Comando CLI `npm run ingest -- <path> <label>` no `server` que chama o endpoint local.
 
 ## Fase 5 — Streaming + observabilidade
 

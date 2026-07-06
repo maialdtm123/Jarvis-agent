@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { SPECIALISTS, withGlobalFacts, withRelevantFacts } from "../src/agents.js";
+import {
+  ORCHESTRATOR_DIRECT_TOOL_NAMES,
+  SPECIALISTS,
+  withGlobalFacts,
+  withRelevantFacts,
+} from "../src/agents.js";
 import type { ToolContext } from "../src/types.js";
 
 describe("withGlobalFacts", () => {
@@ -28,6 +33,13 @@ describe("knowledge specialist", () => {
       "list_dir",
     ]);
     expect(SPECIALISTS.knowledge.system).toContain("avaliação técnica honesta");
+  });
+});
+
+describe("orchestrator tools", () => {
+  it("can search indexed knowledge directly without delegating", () => {
+    expect(ORCHESTRATOR_DIRECT_TOOL_NAMES).toContain("knowledge_search");
+    expect(ORCHESTRATOR_DIRECT_TOOL_NAMES).not.toContain("ingest_source");
   });
 });
 
