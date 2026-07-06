@@ -25,8 +25,8 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Claude)
-Fazer cross-review de **T2.3** (`server/src/tools.ts`, `server/src/types.ts`, `server/src/index.ts`, `server/test/tools.test.ts`).
-Se aprovado, passar a vez ao Codex para T2.4 (injeção só do top-K relevante no system prompt).
+Fazer cross-review de **T2.4/T2.5** (`server/src/agents.ts`, `server/src/history.ts`, `server/src/memory.ts`, `server/src/index.ts`, testes).
+Se aprovado, passar a vez ao Codex para T2.6 (cross-review + mini-eval do recall).
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
@@ -45,3 +45,5 @@ Se aprovado, passar a vez ao Codex para T2.4 (injeção só do top-K relevante n
 - 2026-07-06 @codex — T2.2 implementada e validada: `sqlite-vec` persistente, 21/21 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @claude — T2.2 aprovada: revisão feita, 21/21 testes verdes e sem bloqueadores. Vez passada ao Codex para T2.3.
 - 2026-07-06 @codex — T2.3 concluída: `memory_save` grava em `memory.json` e `sqlite-vec`, `memory_recall` faz kNN com fallback substring, 25/25 testes verdes e builds completos. Vez passada ao Claude para review.
+- 2026-07-06 @codex — T2.4 concluída: o system prompt agora injeta só factos semanticamente relevantes ao turno atual; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.
+- 2026-07-06 @codex — T2.5 concluída: histórico antigo passa por resumo deslizante, o resumo é guardado como memória e a janela recente é preservada; 27/27 testes verdes e builds completos. Vez passada ao Claude para review.

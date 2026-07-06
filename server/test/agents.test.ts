@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { withGlobalFacts } from "../src/agents.js";
+import { withGlobalFacts, withRelevantFacts } from "../src/agents.js";
+import type { ToolContext } from "../src/types.js";
 
 describe("withGlobalFacts", () => {
   it("injects global facts into a specialist system prompt", () => {
@@ -15,5 +16,32 @@ describe("withGlobalFacts", () => {
 
   it("does not add an empty facts section", () => {
     expect(withGlobalFacts("És o especialista.", [])).toBe("És o especialista.");
+  });
+});
+
+describe("withRelevantFacts", () => {
+  it("injects only the top-K relevant facts for the current turn", async () => {
+    const ctx: ToolContext = {
+      sessionId: "test",
+      memory: {
+        facts: () => ["Irrelevante"],
+        recall: () => ["Irrelevante"],
+      } as ToolContext["memory"],
+      vectorStore: {
+        query: async () => [
+          { text: "Gosta de café", metadata: {}, score: 0.99, distance: 0.01 },
+          { text: "Prefere chá", metadata: {}, score: 0.75, distance: 0.25 },
+        ],
+        upsert: async () => undefined,
+        close: () => undefined,
+      } as ToolContext["vectorStore"],
+    };
+
+    const system = await withRelevantFacts("És o especialista.", "café", ctx, 2);
+
+    expect(system).toContain("És o especialista.");
+    expect(system).toContain("- Gosta de café");
+    expect(system).toContain("- Prefere chá");
+    expect(system).not.toContain("Irrelevante");
   });
 });

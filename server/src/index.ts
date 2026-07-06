@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { assertConfig, config } from "./config.js";
-import { listAgents, runOrchestrator } from "./agents.js";
-import { normaliseHistory } from "./history.js";
+import { listAgents, runOrchestrator, summarizeTurns } from "./agents.js";
+import { compactHistoryIfNeeded, normaliseHistory } from "./history.js";
 import { Memory } from "./memory.js";
 import { SqliteVectorStore } from "./vector-store.js";
 import type { ToolContext } from "./types.js";
@@ -102,6 +102,8 @@ const server = createServer(async (req, res) => {
 
       memory.appendHistory(sessionId, { role: "user", content: message });
       memory.appendHistory(sessionId, { role: "assistant", content: reply });
+
+      await compactHistoryIfNeeded(memory, sessionId, (turns) => summarizeTurns(turns, ctx));
 
       return send(res, 200, { reply, sessionId });
     } catch (e) {

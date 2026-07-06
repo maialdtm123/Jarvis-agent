@@ -1,7 +1,7 @@
 import { config } from "./config.js";
 import { log, runAgent } from "./anthropic.js";
 import { pickTools } from "./tools.js";
-import type { AgentSpec, Tool, ToolContext } from "./types.js";
+import type { AgentSpec, Tool, ToolContext, Turn } from "./types.js";
 
 /** Layer 2 — specialist agents, each with a focused toolset. */
 export const SPECIALISTS: Record<string, AgentSpec> = {
@@ -48,6 +48,62 @@ export function withGlobalFacts(system: string, globalFacts: string[]): string {
   );
 }
 
+export async function relevantMemoryFacts(
+  query: string,
+  ctx: ToolContext,
+  limit = 5,
+): Promise<string[]> {
+  const cleanQuery = query.trim();
+  if (!cleanQuery) {
+    return ctx.memory.facts().slice(-limit);
+  }
+
+  try {
+    const matches = await ctx.vectorStore.query(cleanQuery, limit);
+    if (matches.length) return matches.map((match) => match.text);
+  } catch {
+    // Fallback below.
+  }
+
+  const recalled = ctx.memory.recall(cleanQuery).slice(0, limit);
+  if (recalled.length) return recalled;
+  return ctx.memory.facts().slice(-limit);
+}
+
+export async function withRelevantFacts(
+  system: string,
+  query: string,
+  ctx: ToolContext,
+  limit = 5,
+): Promise<string> {
+  const relevant = await relevantMemoryFacts(query, ctx, limit);
+  return withGlobalFacts(system, relevant);
+}
+
+export async function summarizeTurns(turns: Turn[], ctx: ToolContext): Promise<string> {
+  if (!turns.length) return "";
+
+  const transcript = turns
+    .map((turn) => `${turn.role.toUpperCase()}: ${turn.content ?? ""}`.trim())
+    .join("\n");
+
+  return runAgent({
+    label: "summarizer",
+    system:
+      "És um resumidor de histórico do Jarvis. Condensa o diálogo em português de Portugal, focando factos duradouros, decisões, preferências, tarefas em aberto e restrições. Mantém o resumo curto, objetivo e reutilizável para contexto futuro.",
+    model: config.fastModel,
+    tools: [],
+    messages: [
+      {
+        role: "user",
+        content: `Resume o histórico abaixo para contexto futuro:\n\n${transcript}`,
+      },
+    ],
+    ctx,
+    maxSteps: 1,
+  });
+}
+
 /** Run a single specialist on a delegated task. */
 export async function runSpecialist(
   agentName: string,
@@ -56,9 +112,10 @@ export async function runSpecialist(
 ): Promise<string> {
   const spec = SPECIALISTS[agentName] ?? SPECIALISTS.general;
   log("orchestrator", `delegando -> ${spec.name}: ${task.slice(0, 70)}`);
+  const system = await withRelevantFacts(spec.system, task, ctx);
   return runAgent({
     label: spec.name,
-    system: withGlobalFacts(spec.system, ctx.memory.facts()),
+    system,
     model: spec.model,
     tools: pickTools(spec.toolNames),
     messages: [{ role: "user", content: task }],
@@ -112,8 +169,8 @@ export async function runOrchestrator(
       "memory_recall",
     ]),
   ];
-  const facts = ctx.memory.facts();
-  const system = withGlobalFacts(ORCHESTRATOR_SYSTEM, facts);
+  const currentQuery = messages[messages.length - 1]?.content ?? "";
+  const system = await withRelevantFacts(ORCHESTRATOR_SYSTEM, currentQuery, ctx);
 
   return runAgent({
     label: "orchestrator",

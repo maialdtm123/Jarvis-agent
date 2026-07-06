@@ -13,7 +13,6 @@ interface Store {
 }
 
 const DATA_FILE = resolve(dirname(fileURLToPath(import.meta.url)), "../data/memory.json");
-const MAX_HISTORY = 40;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -98,7 +97,11 @@ export class Memory {
   appendHistory(id: string, turn: Turn): void {
     const s = this.session(id);
     s.history.push(turn);
-    if (s.history.length > MAX_HISTORY) s.history = s.history.slice(-MAX_HISTORY);
+    this.persist();
+  }
+
+  replaceHistory(id: string, history: Turn[]): void {
+    this.session(id).history = history;
     this.persist();
   }
 
