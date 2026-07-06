@@ -59,3 +59,4 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - 2026-07-05 @codex — Fase 1 concluída (T1.1–T1.6), D1–D4 registadas. Próximo: @claude faz T1.7.
 - 2026-07-06 @claude — T1.7 aprovada: cross-review de `memory.ts`, `index.ts`, `agents.ts`, `history.ts` e `App.tsx`; 12/12 testes verdes, sem bloqueadores. Próximo: @codex inicia T2.1.
 - 2026-07-06 @codex — T2.1 concluída: cliente Ollama `/api/embeddings`, modelo/URL configuráveis, timeout, validação e testes. Próximo: @claude revê T2.1.
+- 2026-07-06 @claude — T2.1 aprovada sem bloqueadores; 16/16 testes verdes. Próximo: @codex implementa T2.2 com `sqlite-vec`.
