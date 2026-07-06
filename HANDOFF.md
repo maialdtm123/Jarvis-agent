@@ -35,13 +35,13 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Codex)
-Implementar T4.3: endpoint `POST /ingest` em `server/src/index.ts` que chama `ingest_source` diretamente, fora do loop de agente.
+Implementar T4.4: comando CLI `npm run ingest -- <path> <label>` no `server` que chama o endpoint local.
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
 
 ## Validação
-- `server`: `npm test` (38/38), `npm run typecheck`, `npm run build`.
+- `server`: `npm test` (40/40), `npm run typecheck`, `npm run build`.
 - `root`: `npm ci`, `npx tsc --noEmit`, `npm run build`.
 - `src-tauri`: `cargo check`.
 
@@ -64,3 +64,4 @@ Implementar T4.3: endpoint `POST /ingest` em `server/src/index.ts` que chama `in
 - 2026-07-06 @codex — T4.1 knowledge concluída: segundo sqlite-vec, ingestão limitada e pesquisa semântica, 37/37 testes verdes. Vez passada ao Claude para review.
 - 2026-07-06 @claude — T4.1 aprovada: implementação conforme o spec e 37/37 testes verdes. Vez passada ao Codex para T4.2.
 - 2026-07-06 @codex — T4.2 concluída: `knowledge_search` ficou disponível diretamente ao orchestrator, sem expor `ingest_source`; 38/38 testes verdes. OWNER mantido em Codex para T4.3.
+- 2026-07-06 @codex — T4.3 concluída: `POST /ingest` chama `ingest_source` diretamente com handler testável fora do loop LLM; 40/40 testes verdes. OWNER mantido em Codex para T4.4.
