@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Cérebro multi-agente do Jarvis: orchestrator + especialistas + tools.",
+  "engines": {
+    "node": ">=23.5.0"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
@@ -16,5 +19,8 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "4.1.9"
+  },
+  "dependencies": {
+    "sqlite-vec": "0.1.9"
   }
 }

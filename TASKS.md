@@ -28,7 +28,7 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 ## Fase 2 — Memória RAG (depende de D1)
 
 - [x] **T2.1** @codex — Cliente de embeddings (Ollama `/api/embeddings`, modelo configurável).
-- [ ] **T2.2** @codex — Camada de vector store (conforme D1) com `upsert(text, meta)` e `query(text, k)`.
+- [x] **T2.2** @codex — Camada de vector store (conforme D1) com `upsert(text, meta)` e `query(text, k)`.
 - [ ] **T2.3** @codex — `memory_recall` → kNN semântico top-K com score. `memory_save` → embed + upsert.
 - [ ] **T2.4** @codex — Injeção no system: só top-K relevante ao turno (resolve R7).
 - [ ] **T2.5** @codex — Compactação R8: resumo deslizante de histórico antigo via fast model, guardado como memória.
@@ -60,3 +60,4 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - 2026-07-06 @claude — T1.7 aprovada: cross-review de `memory.ts`, `index.ts`, `agents.ts`, `history.ts` e `App.tsx`; 12/12 testes verdes, sem bloqueadores. Próximo: @codex inicia T2.1.
 - 2026-07-06 @codex — T2.1 concluída: cliente Ollama `/api/embeddings`, modelo/URL configuráveis, timeout, validação e testes. Próximo: @claude revê T2.1.
 - 2026-07-06 @claude — T2.1 aprovada sem bloqueadores; 16/16 testes verdes. Próximo: @codex implementa T2.2 com `sqlite-vec`.
+- 2026-07-06 @codex — T2.2 concluída: store persistente `sqlite-vec` com upsert, kNN cosseno, metadata e dimensão protegida. Próximo: @claude revê T2.2.
