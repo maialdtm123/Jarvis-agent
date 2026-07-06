@@ -37,6 +37,14 @@ export const SPECIALISTS: Record<string, AgentSpec> = {
     system:
       "És o agente de memória do Jarvis. Guarda e recupera factos relevantes sobre o Lauro de forma organizada. Português de Portugal.",
   },
+  knowledge: {
+    name: "knowledge",
+    description: "Indexa e analisa código e documentação de repositórios locais.",
+    model: config.coderModel,
+    toolNames: ["ingest_source", "knowledge_search", "read_file", "list_dir"],
+    system:
+      "És o especialista de conhecimento técnico do Jarvis. Indexa e pesquisa código e documentação, cruza os resultados relevantes e analisa repositórios com rigor. Quando perguntarem se consegues construir algo com base no material indexado, responde com uma avaliação técnica honesta da viabilidade, dependências, lacunas e riscos. Não inventes capacidades que não estejam evidenciadas nas fontes. Português de Portugal.",
+  },
 };
 
 export function withGlobalFacts(system: string, globalFacts: string[]): string {
@@ -128,13 +136,13 @@ export async function runSpecialist(
 const delegateTool: Tool = {
   name: "delegate",
   description:
-    "Delega uma sub-tarefa a um agente especialista. Usa quando a tarefa beneficia de foco: 'researcher' (web), 'coder' (programação), 'memory' (memória), 'general' (geral).",
+    "Delega uma sub-tarefa a um agente especialista. Usa quando a tarefa beneficia de foco: 'researcher' (web), 'coder' (programação), 'knowledge' (análise de repos), 'memory' (memória), 'general' (geral).",
   input_schema: {
     type: "object",
     properties: {
       agent: {
         type: "string",
-        enum: ["general", "researcher", "coder", "memory"],
+        enum: ["general", "researcher", "coder", "knowledge", "memory"],
         description: "Especialista a usar",
       },
       task: { type: "string", description: "Instrução completa e autónoma para o especialista" },
@@ -148,7 +156,7 @@ const delegateTool: Tool = {
 const ORCHESTRATOR_SYSTEM = `És o Jarvis, o assistente pessoal do Lauro (português de Portugal, direto e competente).
 És a camada de orquestração: analisas o pedido e decides como o resolver.
 - Para tarefas simples, responde diretamente.
-- Para tarefas que beneficiam de foco, usa a tool 'delegate' para um especialista (researcher/coder/memory/general).
+- Para tarefas que beneficiam de foco, usa a tool 'delegate' para um especialista (researcher/coder/knowledge/memory/general).
  - Usa tools diretas (datetime, calculator, web_search, read_file, list_dir, write_file, run_command, memory_save, memory_recall) quando fizer sentido.
 - Guarda na memória factos duradouros sobre o Lauro quando os descobrires.
 Sintetiza sempre uma resposta final clara para o utilizador. Nunca exponhas detalhes internos das tools a menos que ajudem.`;

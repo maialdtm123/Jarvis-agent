@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Tool } from "./types.js";
 
@@ -9,6 +9,12 @@ const SHELL_DEFAULT_TIMEOUT_MS = 15_000;
 const SHELL_MAX_TIMEOUT_MS = 60_000;
 const SHELL_MAX_OUTPUT_BYTES = 64 * 1024;
 const SHELL_CONFIRMATION_TTL_MS = 5 * 60_000;
+const KNOWLEDGE_EXTENSIONS = new Set([".js", ".json", ".md", ".py", ".rs", ".toml", ".ts"]);
+const KNOWLEDGE_IGNORED_DIRS = new Set([".git", "dist", "node_modules", "target"]);
+const KNOWLEDGE_CHUNK_SIZE = 1500;
+const KNOWLEDGE_CHUNK_OVERLAP = 150;
+const KNOWLEDGE_CHUNK_THRESHOLD = 2000;
+const KNOWLEDGE_MAX_CHUNKS = 500;
 const FORBIDDEN_EXECUTABLES = new Set([
   "bash",
   "cmd",
@@ -543,6 +549,140 @@ export const writeFileTool: Tool = {
   },
 };
 
+interface KnowledgeChunk {
+  text: string;
+  file: string;
+  chunkIndex: number;
+}
+
+function chunkSource(text: string): string[] {
+  if (!text.trim()) return [];
+  if (text.length <= KNOWLEDGE_CHUNK_THRESHOLD) return [text.trim()];
+
+  const chunks: string[] = [];
+  const step = KNOWLEDGE_CHUNK_SIZE - KNOWLEDGE_CHUNK_OVERLAP;
+  for (let start = 0; start < text.length; start += step) {
+    const chunk = text.slice(start, start + KNOWLEDGE_CHUNK_SIZE).trim();
+    if (chunk) chunks.push(chunk);
+    if (start + KNOWLEDGE_CHUNK_SIZE >= text.length) break;
+  }
+  return chunks;
+}
+
+async function collectKnowledgeChunks(root: string): Promise<{
+  chunks: KnowledgeChunk[];
+  fileCount: number;
+  exceeded: boolean;
+}> {
+  const chunks: KnowledgeChunk[] = [];
+  let fileCount = 0;
+
+  async function visit(directory: string): Promise<boolean> {
+    const entries = await readdir(directory, { withFileTypes: true });
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of entries) {
+      const target = resolve(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (!KNOWLEDGE_IGNORED_DIRS.has(entry.name) && (await visit(target))) return true;
+        continue;
+      }
+      if (!entry.isFile() || !KNOWLEDGE_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
+        continue;
+      }
+
+      const fileChunks = chunkSource(await readFile(target, "utf8"));
+      if (!fileChunks.length) continue;
+      fileCount += 1;
+      const file = relative(root, target).replaceAll("\\", "/");
+      for (const [chunkIndex, text] of fileChunks.entries()) {
+        chunks.push({ text, file, chunkIndex });
+        if (chunks.length > KNOWLEDGE_MAX_CHUNKS) return true;
+      }
+    }
+    return false;
+  }
+
+  const exceeded = await visit(root);
+  return { chunks, fileCount, exceeded };
+}
+
+export const ingestSource: Tool = {
+  name: "ingest_source",
+  description:
+    "Indexa ficheiros de texto e código de um diretório allowlisted na base de conhecimento semântica.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "Diretório allowlisted a indexar" },
+      label: { type: "string", description: "Nome opcional da fonte/repositório" },
+    },
+    required: ["path"],
+  },
+  run: async (input: { path: string; label?: string }, ctx) => {
+    const requestedPath = String(input.path ?? "").trim();
+    if (!requestedPath) return "Path vazio.";
+
+    try {
+      const root = assertAllowedPath(requestedPath);
+      const info = await stat(root);
+      if (!info.isDirectory()) return "Erro ao indexar fonte: o path não é um diretório.";
+      const label = String(input.label ?? requestedPath).trim() || requestedPath;
+      const collected = await collectKnowledgeChunks(root);
+      if (collected.exceeded) {
+        return `A fonte excede o limite de ${KNOWLEDGE_MAX_CHUNKS} chunks; nada foi indexado. Usa um path mais específico.`;
+      }
+
+      for (const chunk of collected.chunks) {
+        await ctx.knowledgeStore.upsert(chunk.text, {
+          file: chunk.file,
+          chunkIndex: chunk.chunkIndex,
+          label,
+        });
+      }
+      return `Indexados ${collected.chunks.length} chunks de ${collected.fileCount} ficheiros em ${label}.`;
+    } catch (error) {
+      return `Erro ao indexar fonte: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
+};
+
+export const knowledgeSearch: Tool = {
+  name: "knowledge_search",
+  description: "Pesquisa semanticamente código e documentação previamente indexados.",
+  input_schema: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "Questão ou conceito técnico a pesquisar" },
+      k: { type: "number", description: "Número de resultados (default: 8)" },
+    },
+    required: ["query"],
+  },
+  run: async (input: { query: string; k?: number }, ctx) => {
+    const query = String(input.query ?? "").trim();
+    if (!query) return "Query vazia.";
+    const k = input.k ?? 8;
+    if (!Number.isInteger(k) || k < 1 || k > 100) {
+      return "k deve ser um inteiro entre 1 e 100.";
+    }
+
+    try {
+      const matches = await ctx.knowledgeStore.query(query, k);
+      if (!matches.length) return "Sem conhecimento indexado relevante.";
+      return matches
+        .map((match) => {
+          const file =
+            typeof match.metadata.file === "string" ? match.metadata.file : "fonte desconhecida";
+          const text = match.text.replace(/\s+/g, " ").trim().slice(0, 300);
+          return `• [${file}] ${text} (score: ${match.score.toFixed(2)})`;
+        })
+        .join("\n");
+    } catch (error) {
+      return `Erro ao pesquisar conhecimento: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
+};
+
 /** Persist a durable global fact. */
 export const memorySave: Tool = {
   name: "memory_save",
@@ -603,6 +743,8 @@ export const ALL_TOOLS: Tool[] = [
   listDirTool,
   writeFileTool,
   runCommandTool,
+  ingestSource,
+  knowledgeSearch,
   memorySave,
   memoryRecall,
 ];

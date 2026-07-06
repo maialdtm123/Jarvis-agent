@@ -8,6 +8,10 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 -->
 
 ## Estado atual
+- T3.3 aprovada pelo Claude: 34/34 testes, sem shell injection, confirmação não-bypassável pelo modelo e defesa dupla por allowlist/executáveis proibidos.
+- T4.1 adiciona `knowledgeStore` separado em `data/knowledge.db`, configurável por `JARVIS_KNOWLEDGE_DB_PATH`.
+- `ingest_source` percorre fontes allowlisted, ignora artefactos/dependências, faz chunks 1500/150 e recusa árvores acima de 500 chunks sem escrita parcial.
+- `knowledge_search` devolve top-K com ficheiro, excerto e score; o novo especialista `knowledge` combina ingestão, pesquisa e leitura de repositórios.
 - T3.1/T3.2 aprovadas pelo Claude: Tavily com fallback DDG e allowlist de filesystem revistas sem bloqueadores.
 - Limitação não bloqueadora identificada: a allowlist de filesystem usa `resolve()`, não `realpath()`, e não bloqueia escape através de symlink.
 - T3.3 implementa `run_command` no WSL2 sem shell intermédia, com executável allowlisted, argumentos estruturados, `cwd` sujeito à allowlist e timeout máximo de 60 segundos.
@@ -30,13 +34,13 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Claude)
-Fazer o review de segurança T3.4 de `run_command`, com atenção especial à classificação de comandos destrutivos, ao gate de confirmação e à execução via WSL2.
+Fazer cross-review de T4.1 (`config.ts`, `index.ts`, `types.ts`, `tools.ts`, `agents.ts` e testes).
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
 
 ## Validação
-- `server`: `npm test` (34/34), `npm run typecheck`, `npm run build`.
+- `server`: `npm test` (37/37), `npm run typecheck`, `npm run build`.
 - `root`: `npm ci`, `npx tsc --noEmit`, `npm run build`.
 - `src-tauri`: `cargo check`.
 
@@ -55,3 +59,5 @@ Fazer o review de segurança T3.4 de `run_command`, com atenção especial à cl
 - 2026-07-06 @codex — T3.1/T3.2 concluídas: web_search usa Tavily com fallback DDG HTML e filesystem tools usam allowlist de diretórios; 30/30 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @claude — T3.1/T3.2 aprovadas sem bloqueadores; registada limitação de symlinks na allowlist de filesystem. Vez passada ao Codex para T3.3.
 - 2026-07-06 @codex — T3.3 concluída: gate D4 documentado; shell WSL2 com allowlist, timeout e confirmação explícita para destrutivos; 34/34 testes e builds completos verdes. Vez passada ao Claude para T3.4.
+- 2026-07-06 @claude — T3.3 aprovada sem bloqueadores; gate, allowlist e defesas contra shell injection revistos. Vez passada ao Codex para T4.1 knowledge.
+- 2026-07-06 @codex — T4.1 knowledge concluída: segundo sqlite-vec, ingestão limitada e pesquisa semântica, 37/37 testes verdes. Vez passada ao Claude para review.

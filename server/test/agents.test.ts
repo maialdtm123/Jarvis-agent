@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withGlobalFacts, withRelevantFacts } from "../src/agents.js";
+import { SPECIALISTS, withGlobalFacts, withRelevantFacts } from "../src/agents.js";
 import type { ToolContext } from "../src/types.js";
 
 describe("withGlobalFacts", () => {
@@ -19,6 +19,18 @@ describe("withGlobalFacts", () => {
   });
 });
 
+describe("knowledge specialist", () => {
+  it("has the source ingestion and semantic search tools", () => {
+    expect(SPECIALISTS.knowledge.toolNames).toEqual([
+      "ingest_source",
+      "knowledge_search",
+      "read_file",
+      "list_dir",
+    ]);
+    expect(SPECIALISTS.knowledge.system).toContain("avaliação técnica honesta");
+  });
+});
+
 describe("withRelevantFacts", () => {
   it("injects only the top-K relevant facts for the current turn", async () => {
     const ctx: ToolContext = {
@@ -35,6 +47,11 @@ describe("withRelevantFacts", () => {
         upsert: async () => undefined,
         close: () => undefined,
       } as ToolContext["vectorStore"],
+      knowledgeStore: {
+        query: async () => [],
+        upsert: async () => undefined,
+        close: () => undefined,
+      } as ToolContext["knowledgeStore"],
     };
 
     const system = await withRelevantFacts("És o especialista.", "café", ctx, 2);

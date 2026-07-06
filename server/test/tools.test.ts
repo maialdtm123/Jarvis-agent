@@ -1,11 +1,13 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Memory } from "../src/memory.js";
 import {
   createRunCommandTool,
+  ingestSource,
   isDestructiveCommand,
+  knowledgeSearch,
   listDirTool,
   memoryRecall,
   memorySave,
@@ -53,7 +55,11 @@ function createContext(
     databasePath: ":memory:",
     embeddings: new FakeEmbeddings(vectors),
   });
-  return { memory, vectorStore, ctx: { sessionId: "test", memory, vectorStore } };
+  return {
+    memory,
+    vectorStore,
+    ctx: { sessionId: "test", memory, vectorStore, knowledgeStore: vectorStore },
+  };
 }
 
 describe("memory tools", () => {
@@ -310,5 +316,72 @@ describe("shell tool security gate", () => {
     expect(isDestructiveCommand("git", ["status", "--short"])).toBe(false);
     expect(isDestructiveCommand("npm", ["uninstall", "package"])).toBe(true);
     expect(isDestructiveCommand("cargo", ["check"])).toBe(false);
+  });
+});
+
+describe("knowledge tools", () => {
+  it("ingests supported source files and returns semantically relevant chunks", async () => {
+    const sourceRoot = mkdtempSync(join(tmpdir(), "jarvis-knowledge-source-"));
+    tempDirs.push(sourceRoot);
+    process.env.JARVIS_ALLOWED_DIRS = sourceRoot;
+    const authSource = "export function authenticate(token: string) { return token.length > 10; }";
+    const cookingSource = "# Receitas\nMisturar farinha e água para fazer pão.";
+    writeFileSync(join(sourceRoot, "auth.ts"), authSource, "utf8");
+    mkdirSync(join(sourceRoot, "docs"));
+    writeFileSync(join(sourceRoot, "docs", "recipes.md"), cookingSource, "utf8");
+    writeFileSync(join(sourceRoot, "image.png"), "not indexed", "utf8");
+    mkdirSync(join(sourceRoot, "node_modules"));
+    writeFileSync(join(sourceRoot, "node_modules", "ignored.ts"), "ignored dependency", "utf8");
+
+    const memory = new Memory(memoryPath());
+    const knowledgeStore = new SqliteVectorStore({
+      databasePath: ":memory:",
+      embeddings: new FakeEmbeddings({
+        [authSource]: [1, 0],
+        [cookingSource]: [0, 1],
+        "login security": [1, 0],
+      }),
+    });
+    const ctx = {
+      sessionId: "knowledge-test",
+      memory,
+      vectorStore: knowledgeStore,
+      knowledgeStore,
+    };
+
+    const ingested = await ingestSource.run(
+      { path: sourceRoot, label: "sample-repo" },
+      ctx,
+    );
+    const results = await knowledgeSearch.run({ query: "login security", k: 2 }, ctx);
+
+    expect(ingested).toBe("Indexados 2 chunks de 2 ficheiros em sample-repo.");
+    expect(results).toContain("[auth.ts]");
+    expect(results).toContain("function authenticate");
+    expect(results.indexOf("[auth.ts]")).toBeLessThan(results.indexOf("[docs/recipes.md]"));
+
+    knowledgeStore.close();
+  });
+
+  it("refuses an ingestion larger than 500 chunks without partial writes", async () => {
+    const sourceRoot = mkdtempSync(join(tmpdir(), "jarvis-knowledge-limit-"));
+    tempDirs.push(sourceRoot);
+    process.env.JARVIS_ALLOWED_DIRS = sourceRoot;
+    writeFileSync(
+      join(sourceRoot, "oversized.ts"),
+      "x".repeat(1500 + 1350 * 500),
+      "utf8",
+    );
+    const upsert = vi.fn(async () => undefined);
+    const ctx = {
+      sessionId: "knowledge-limit",
+      knowledgeStore: { upsert },
+    } as unknown as ToolContext;
+
+    const reply = await ingestSource.run({ path: sourceRoot }, ctx);
+
+    expect(reply).toContain("excede o limite de 500 chunks");
+    expect(reply).toContain("nada foi indexado");
+    expect(upsert).not.toHaveBeenCalled();
   });
 });

@@ -68,6 +68,10 @@ export const config = {
   vectorDbPath:
     process.env.JARVIS_VECTOR_DB ??
     resolve(dirname(fileURLToPath(import.meta.url)), "../data/memory.db"),
+  /** Separate SQLite database for ingested source-code knowledge. */
+  knowledgeDbPath:
+    process.env.JARVIS_KNOWLEDGE_DB_PATH ??
+    resolve(dirname(fileURLToPath(import.meta.url)), "../data/knowledge.db"),
   /** Optional shared secret. If set, /chat and /reset require header x-jarvis-token. */
   apiToken: process.env.JARVIS_API_TOKEN ?? "",
   port: Number(process.env.PORT ?? 8791),

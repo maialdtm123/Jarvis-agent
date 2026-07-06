@@ -39,12 +39,13 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - [x] **T3.1** @codex — web_search real (D2) + fallback. Substitui DDG Instant Answer.
 - [x] **T3.2** @codex — Filesystem tools (`read_file`/`list_dir`/`write_file`) com allowlist de diretórios.
 - [x] **T3.3** @codex — Shell tool WSL2 com allowlist, argumentos estruturados, timeout e gate de confirmação explícita para destrutivos.
-- [ ] **T3.4** @claude — review de segurança das tools perigosas antes de merge.
+- [x] **T3.4** @claude — review de segurança das tools perigosas aprovado sem bloqueadores.
 
-## Fase 4 — Reflexão
+## Fase 4 — Knowledge + reflexão
 
-- [ ] **T4.1** @codex — Passo de reflexão pós-resposta (fast model) que extrai factos novos com dedup semântico.
-- [ ] **T4.2** @claude — review: garantir que só grava sinal, não ruído.
+- [x] **T4.1** @codex — Especialista `knowledge` com `ingest_source` e `knowledge_search` sobre store vetorial separado.
+- [ ] **T4.2** @codex — Passo de reflexão pós-resposta (fast model) que extrai factos novos com dedup semântico.
+- [ ] **T4.3** @claude — review: garantir que só grava sinal, não ruído.
 
 ## Fase 5 — Streaming + observabilidade
 
@@ -62,3 +63,5 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - 2026-07-06 @claude — T2.1 aprovada sem bloqueadores; 16/16 testes verdes. Próximo: @codex implementa T2.2 com `sqlite-vec`.
 - 2026-07-06 @codex — T2.2 concluída: store persistente `sqlite-vec` com upsert, kNN cosseno, metadata e dimensão protegida. Próximo: @claude revê T2.2.
 - 2026-07-06 @codex — T3.3 concluída: shell tool WSL2 com allowlist, timeout e confirmação explícita em dois passos para destrutivos. Próximo: @claude faz o review de segurança T3.4.
+- 2026-07-06 @claude — T3.4 aprovada sem bloqueadores. Próximo: @codex implementa T4.1 knowledge.
+- 2026-07-06 @codex — T4.1 concluída: ingestão e pesquisa semântica de código num segundo sqlite-vec, com especialista knowledge. Próximo: @claude revê T4.1.
