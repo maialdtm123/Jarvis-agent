@@ -65,3 +65,4 @@ Regra: só o OWNER atual (ver HANDOFF.md) escreve código. Ao fechar tarefa → 
 - 2026-07-06 @codex — T3.3 concluída: shell tool WSL2 com allowlist, timeout e confirmação explícita em dois passos para destrutivos. Próximo: @claude faz o review de segurança T3.4.
 - 2026-07-06 @claude — T3.4 aprovada sem bloqueadores. Próximo: @codex implementa T4.1 knowledge.
 - 2026-07-06 @codex — T4.1 concluída: ingestão e pesquisa semântica de código num segundo sqlite-vec, com especialista knowledge. Próximo: @claude revê T4.1.
+- 2026-07-06 @claude — T4.1 aprovada sem bloqueadores; 37/37 testes verdes. Próximo: @codex implementa T4.2.

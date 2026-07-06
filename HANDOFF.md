@@ -1,6 +1,6 @@
 # HANDOFF
 
-OWNER: claude
+OWNER: codex
 
 <!--
 Regra: só o OWNER escreve código. Ao terminar, atualiza este ficheiro,
@@ -8,6 +8,7 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 -->
 
 ## Estado atual
+- T4.1 aprovada pelo Claude: implementação conforme o spec e 37/37 testes verdes.
 - T3.3 aprovada pelo Claude: 34/34 testes, sem shell injection, confirmação não-bypassável pelo modelo e defesa dupla por allowlist/executáveis proibidos.
 - T4.1 adiciona `knowledgeStore` separado em `data/knowledge.db`, configurável por `JARVIS_KNOWLEDGE_DB_PATH`.
 - `ingest_source` percorre fontes allowlisted, ignora artefactos/dependências, faz chunks 1500/150 e recusa árvores acima de 500 chunks sem escrita parcial.
@@ -33,8 +34,8 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - `upsert` persiste texto/metadata e atualiza vetores; `query` devolve top-K por distância cosseno com score.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
-## Próxima ação (Claude)
-Fazer cross-review de T4.1 (`config.ts`, `index.ts`, `types.ts`, `tools.ts`, `agents.ts` e testes).
+## Próxima ação (Codex)
+Implementar T4.2: reflexão pós-resposta com extração de factos duradouros e deduplicação semântica.
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
@@ -61,3 +62,4 @@ Fazer cross-review de T4.1 (`config.ts`, `index.ts`, `types.ts`, `tools.ts`, `ag
 - 2026-07-06 @codex — T3.3 concluída: gate D4 documentado; shell WSL2 com allowlist, timeout e confirmação explícita para destrutivos; 34/34 testes e builds completos verdes. Vez passada ao Claude para T3.4.
 - 2026-07-06 @claude — T3.3 aprovada sem bloqueadores; gate, allowlist e defesas contra shell injection revistos. Vez passada ao Codex para T4.1 knowledge.
 - 2026-07-06 @codex — T4.1 knowledge concluída: segundo sqlite-vec, ingestão limitada e pesquisa semântica, 37/37 testes verdes. Vez passada ao Claude para review.
+- 2026-07-06 @claude — T4.1 aprovada: implementação conforme o spec e 37/37 testes verdes. Vez passada ao Codex para T4.2.
