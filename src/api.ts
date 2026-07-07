@@ -18,6 +18,35 @@ export interface JarvisStreamHandlers {
   onToolEvent?: (event: { type: "tool_start" | "tool_result"; agent: string; tool: string }) => void;
 }
 
+export interface TraceEvent {
+  at: string;
+  type: "start" | "token" | "tool_start" | "tool_result" | "done" | "error";
+  agent?: string;
+  tool?: string;
+  text?: string;
+  output?: string;
+  error?: string;
+}
+
+export interface TraceRun {
+  id: string;
+  sessionId: string;
+  message: string;
+  stream: boolean;
+  startedAt: string;
+  endedAt?: string;
+  durationMs?: number;
+  status: "running" | "ok" | "error";
+  reply?: string;
+  error?: string;
+  events: TraceEvent[];
+}
+
+export interface MemorySnapshot {
+  facts: string[];
+  sessions: Array<{ id: string; turns: number; lastRole?: string }>;
+}
+
 function jarvisServerUrl(): string {
   return (import.meta.env.VITE_JARVIS_SERVER_URL ?? "http://localhost:8791").replace(/\/+$/, "");
 }
@@ -25,6 +54,15 @@ function jarvisServerUrl(): string {
 function jarvisHeaders(): Record<string, string> {
   const token = import.meta.env.VITE_JARVIS_API_TOKEN;
   return token ? { "x-jarvis-token": token } : {};
+}
+
+async function jarvisJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${jarvisServerUrl()}${path}`, { headers: jarvisHeaders() });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Jarvis HTTP ${response.status}`);
+  }
+  return response.json() as Promise<T>;
 }
 
 function parseSseBlock(block: string): { event: string; data: any } | null {
@@ -97,6 +135,15 @@ export async function streamJarvisAgent(
 
 export function jarvisHealth(): Promise<boolean> {
   return invoke<boolean>("jarvis_health");
+}
+
+export async function jarvisLogs(limit = 50): Promise<TraceRun[]> {
+  const body = await jarvisJson<{ traces: TraceRun[] }>(`/logs?limit=${encodeURIComponent(limit)}`);
+  return body.traces;
+}
+
+export function jarvisMemory(): Promise<MemorySnapshot> {
+  return jarvisJson<MemorySnapshot>("/memory");
 }
 
 export function jarvisReset(sessionId?: string): Promise<boolean> {

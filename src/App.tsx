@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { PROVIDERS, type ChatMessage, type Provider } from "./types";
-import { jarvisHealth, jarvisReset, jarvisWipe, sendToProvider, streamJarvisAgent } from "./api";
+import {
+  jarvisHealth,
+  jarvisLogs,
+  jarvisMemory,
+  jarvisReset,
+  jarvisWipe,
+  sendToProvider,
+  streamJarvisAgent,
+  type MemorySnapshot,
+  type TraceRun,
+} from "./api";
 
 type View = "chat" | "agents" | "memory" | "logs" | "settings";
 
@@ -32,6 +42,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [liveTools, setLiveTools] = useState<string[]>([]);
   const [online, setOnline] = useState<boolean | null>(null);
+  const [traces, setTraces] = useState<TraceRun[]>([]);
+  const [memorySnapshot, setMemorySnapshot] = useState<MemorySnapshot | null>(null);
+  const [panelLoading, setPanelLoading] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -62,6 +76,29 @@ export default function App() {
       clearInterval(t);
     };
   }, []);
+
+  async function refreshPanel(target: View = view) {
+    if (target !== "logs" && target !== "memory") return;
+    setPanelLoading(true);
+    setPanelError(null);
+    try {
+      if (target === "logs") {
+        setTraces(await jarvisLogs(50));
+      } else {
+        setMemorySnapshot(await jarvisMemory());
+      }
+    } catch (e) {
+      setPanelError(String(e));
+    } finally {
+      setPanelLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (view === "logs" || view === "memory") {
+      void refreshPanel(view);
+    }
+  }, [view]);
 
   async function send() {
     const text = input.trim();
@@ -198,6 +235,11 @@ export default function App() {
           <button className="ghost" onClick={wipeMemory} title="Apagar toda a memória">
             Apagar memória
           </button>
+          {(view === "logs" || view === "memory") && (
+            <button className="ghost" onClick={() => void refreshPanel()} title="Atualizar dados">
+              Atualizar
+            </button>
+          )}
         </header>
 
         {view === "chat" ? (
@@ -249,10 +291,105 @@ export default function App() {
               </button>
             </div>
           </>
+        ) : view === "logs" ? (
+          <LogsView traces={traces} loading={panelLoading} error={panelError} />
+        ) : view === "memory" ? (
+          <MemoryView snapshot={memorySnapshot} loading={panelLoading} error={panelError} />
         ) : (
           <Placeholder view={view} />
         )}
       </main>
+    </div>
+  );
+}
+
+function LogsView({
+  traces,
+  loading,
+  error,
+}: {
+  traces: TraceRun[];
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <div className="panel-view">
+      <div className="panel-title">
+        <h2>Logs</h2>
+        <span>{loading ? "a atualizar..." : `${traces.length} runs`}</span>
+      </div>
+      {error && <div className="error">⚠️ {error}</div>}
+      <div className="trace-list">
+        {traces.map((trace) => (
+          <article key={trace.id} className="trace-row">
+            <div className="trace-main">
+              <span className={`trace-status ${trace.status}`}>{trace.status}</span>
+              <strong>{trace.message}</strong>
+              <small>
+                {trace.sessionId} · {new Date(trace.startedAt).toLocaleString()} ·{" "}
+                {trace.durationMs ?? 0} ms
+              </small>
+            </div>
+            <div className="trace-events">
+              {trace.events.slice(-8).map((event, index) => (
+                <span key={`${trace.id}-${index}`}>
+                  {event.type}
+                  {event.tool ? `:${event.tool}` : ""}
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+        {!loading && !traces.length && <div className="empty-state">Sem runs registados.</div>}
+      </div>
+    </div>
+  );
+}
+
+function MemoryView({
+  snapshot,
+  loading,
+  error,
+}: {
+  snapshot: MemorySnapshot | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const facts = snapshot?.facts ?? [];
+  const sessions = snapshot?.sessions ?? [];
+  return (
+    <div className="panel-view">
+      <div className="panel-title">
+        <h2>Memória</h2>
+        <span>
+          {loading ? "a atualizar..." : `${facts.length} factos · ${sessions.length} sessões`}
+        </span>
+      </div>
+      {error && <div className="error">⚠️ {error}</div>}
+      <section className="memory-section">
+        <h3>Factos</h3>
+        <div className="fact-list">
+          {facts.map((fact, index) => (
+            <div key={`${fact}-${index}`} className="fact-item">
+              {fact}
+            </div>
+          ))}
+          {!loading && !facts.length && <div className="empty-state">Sem factos guardados.</div>}
+        </div>
+      </section>
+      <section className="memory-section">
+        <h3>Sessões</h3>
+        <div className="session-list">
+          {sessions.map((session) => (
+            <div key={session.id} className="session-row">
+              <strong>{session.id}</strong>
+              <span>{session.turns} turnos</span>
+              <span>{session.lastRole ?? "sem histórico"}</span>
+            </div>
+          ))}
+          {!loading && !sessions.length && <div className="empty-state">Sem sessões guardadas.</div>}
+        </div>
+      </section>
     </div>
   );
 }

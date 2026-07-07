@@ -12,6 +12,11 @@ interface Store {
   sessions: Record<string, SessionData>;
 }
 
+export interface MemorySnapshot {
+  facts: string[];
+  sessions: Array<{ id: string; turns: number; lastRole?: string }>;
+}
+
 const DATA_FILE = resolve(dirname(fileURLToPath(import.meta.url)), "../data/memory.json");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -121,6 +126,20 @@ export class Memory {
 
   facts(): string[] {
     return this.store.globalFacts;
+  }
+
+  snapshot(): MemorySnapshot {
+    return {
+      facts: [...this.store.globalFacts],
+      sessions: Object.entries(this.store.sessions).map(([id, session]) => {
+        const last = session.history.at(-1);
+        return {
+          id,
+          turns: session.history.length,
+          lastRole: last?.role,
+        };
+      }),
+    };
   }
 
   /** Wipe a session's conversation history (keeps durable facts). */

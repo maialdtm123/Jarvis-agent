@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRequestHandler, type ServerDeps } from "../src/index.js";
+import { TraceStore } from "../src/traces.js";
 import type { Tool, ToolContext, Turn } from "../src/types.js";
 
 const servers: Server[] = [];
@@ -31,6 +32,7 @@ function depsWithIngestTool(tool: Tool): ServerDeps {
     vectorStore: {} as ServerDeps["vectorStore"],
     knowledgeStore: {} as ServerDeps["knowledgeStore"],
     ingestTool: tool,
+    traceStore: new TraceStore(),
   };
 }
 
@@ -42,10 +44,15 @@ function depsWithChat(orchestrator: ServerDeps["orchestrator"]): ServerDeps {
       appendHistory: (_sessionId: string, turn: Turn) => history.push(turn),
       facts: () => [],
       recall: () => [],
+      snapshot: () => ({
+        facts: ["O Lauro prefere local-first."],
+        sessions: [{ id: "default", turns: history.length, lastRole: history.at(-1)?.role }],
+      }),
     } as unknown as ServerDeps["memory"],
     vectorStore: { query: async () => [], upsert: async () => undefined } as ServerDeps["vectorStore"],
     knowledgeStore: {} as ServerDeps["knowledgeStore"],
     ingestTool: { name: "ingest_source", description: "fake", input_schema: {}, run: vi.fn() },
+    traceStore: new TraceStore(),
     orchestrator,
   };
 }
@@ -170,5 +177,53 @@ describe("POST /chat streaming", () => {
     expect(events[1].data).toMatchObject({ agent: "orchestrator", tool: "calculator" });
     expect(events[3].data).toEqual({ agent: "orchestrator", text: "Olá " });
     expect(events[5].data).toEqual({ reply: "Olá Lauro", sessionId: "stream-test" });
+  });
+});
+
+describe("observability endpoints", () => {
+  it("returns structured traces from real chat runs", async () => {
+    const orchestrator = vi.fn(async (_messages: any, ctx: ToolContext) => {
+      ctx.events?.toolStart?.({ agent: "orchestrator", tool: "datetime" });
+      ctx.events?.toolResult?.({ agent: "orchestrator", tool: "datetime", output: "agora" });
+      ctx.events?.text?.({ agent: "orchestrator", text: "Feito" });
+      return "Feito";
+    });
+    const baseUrl = await listen(depsWithChat(orchestrator));
+
+    await fetch(`${baseUrl}/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: "que horas são?", sessionId: "logs-test" }),
+    });
+    const response = await fetch(`${baseUrl}/logs?limit=1`);
+
+    expect(response.status).toBe(200);
+    const body: any = await response.json();
+    expect(body.traces).toHaveLength(1);
+    expect(body.traces[0]).toMatchObject({
+      sessionId: "logs-test",
+      message: "que horas são?",
+      status: "ok",
+      reply: "Feito",
+    });
+    expect(body.traces[0].events.map((event: any) => event.type)).toEqual([
+      "start",
+      "tool_start",
+      "tool_result",
+      "token",
+      "done",
+    ]);
+  });
+
+  it("returns a real memory snapshot", async () => {
+    const baseUrl = await listen(depsWithChat(async () => "ok"));
+
+    const response = await fetch(`${baseUrl}/memory`);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      facts: ["O Lauro prefere local-first."],
+      sessions: [{ id: "default", turns: 0 }],
+    });
   });
 });

@@ -6,6 +6,7 @@ import { listAgents, runOrchestrator, summarizeTurns } from "./agents.js";
 import { compactHistoryIfNeeded, normaliseHistory } from "./history.js";
 import { Memory } from "./memory.js";
 import { ingestSource } from "./tools.js";
+import { TraceStore } from "./traces.js";
 import { SqliteVectorStore } from "./vector-store.js";
 import type { AgentEventSink, Tool, ToolContext } from "./types.js";
 
@@ -16,6 +17,7 @@ export interface ServerDeps {
   vectorStore: SqliteVectorStore;
   knowledgeStore: SqliteVectorStore;
   ingestTool: Tool;
+  traceStore: TraceStore;
   orchestrator?: typeof runOrchestrator;
 }
 
@@ -78,6 +80,12 @@ export function authorised(req: IncomingMessage): boolean {
   return req.headers["x-jarvis-token"] === config.apiToken;
 }
 
+function queryNumber(req: IncomingMessage, key: string, fallback: number): number {
+  const parsed = new URL(req.url ?? "/", "http://localhost");
+  const value = Number(parsed.searchParams.get(key));
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
 function createContext(
   deps: ServerDeps,
   sessionId: string,
@@ -114,12 +122,21 @@ export function createRequestHandler(deps: ServerDeps) {
       return send(res, 200, { agents: listAgents() });
     }
 
+    if (method === "GET" && (url === "/logs" || url === "/memory")) {
+      if (!authorised(req)) return send(res, 401, { error: "Token inválido (x-jarvis-token)." });
+      if (url === "/logs") {
+        return send(res, 200, { traces: deps.traceStore.list(queryNumber(req, "limit", 50)) });
+      }
+      return send(res, 200, deps.memory.snapshot());
+    }
+
     if (
       method === "POST" &&
       (url === "/chat" || url === "/reset" || url === "/wipe" || url === "/ingest")
     ) {
       if (!authorised(req)) return send(res, 401, { error: "Token inválido (x-jarvis-token)." });
 
+      let traceId: string | undefined;
       try {
         const body = await readBody(req);
         const sessionId = String(body.sessionId ?? "default");
@@ -149,17 +166,27 @@ export function createRequestHandler(deps: ServerDeps) {
 
         const wantsStream =
           req.headers.accept?.includes("text/event-stream") || body.stream === true;
-        const events: AgentEventSink | undefined = wantsStream
-          ? {
-              text: (event) => writeSse(res, "token", event),
-              toolStart: (event) => writeSse(res, "tool_start", event),
-              toolResult: (event) =>
-                writeSse(res, "tool_result", {
-                  ...event,
-                  output: event.output.slice(0, 1000),
-                }),
+        const trace = deps.traceStore.start({ sessionId, message, stream: wantsStream });
+        traceId = trace.id;
+        const events: AgentEventSink = {
+          text: (event) => {
+            deps.traceStore.add(trace.id, { type: "token", ...event });
+            if (wantsStream) writeSse(res, "token", event);
+          },
+          toolStart: (event) => {
+            deps.traceStore.add(trace.id, { type: "tool_start", ...event });
+            if (wantsStream) writeSse(res, "tool_start", event);
+          },
+          toolResult: (event) => {
+            deps.traceStore.add(trace.id, { type: "tool_result", ...event });
+            if (wantsStream) {
+              writeSse(res, "tool_result", {
+                ...event,
+                output: event.output.slice(0, 1000),
+              });
             }
-          : undefined;
+          },
+        };
         const ctx = createContext(deps, sessionId, message, events);
         const messages = [
           ...normaliseHistory(deps.memory.getHistory(sessionId)),
@@ -173,6 +200,7 @@ export function createRequestHandler(deps: ServerDeps) {
         }
 
         const reply = await (deps.orchestrator ?? runOrchestrator)(messages, ctx);
+        deps.traceStore.finish(trace.id, reply);
 
         deps.memory.appendHistory(sessionId, { role: "user", content: message });
         deps.memory.appendHistory(sessionId, { role: "assistant", content: reply });
@@ -193,6 +221,7 @@ export function createRequestHandler(deps: ServerDeps) {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error("[request] erro:", msg);
+        if (typeof traceId === "string") deps.traceStore.fail(traceId, msg);
         if (!res.headersSent) {
           return send(res, 500, { error: msg });
         }
@@ -211,6 +240,7 @@ function createServerDeps(): ServerDeps {
     vectorStore: new SqliteVectorStore(),
     knowledgeStore: new SqliteVectorStore({ databasePath: config.knowledgeDbPath }),
     ingestTool: ingestSource,
+    traceStore: new TraceStore(),
   };
 }
 
@@ -230,7 +260,7 @@ export function startServer(): void {
     console.log(`   modelo: ${config.model} · fast: ${config.fastModel}`);
     console.log(`   auth: ${config.apiToken ? "ON (x-jarvis-token)" : "OFF"}`);
     console.log(
-      "   rotas: GET /health · GET /agents · POST /chat · POST /reset · POST /wipe · POST /ingest",
+      "   rotas: GET /health · GET /agents · GET /logs · GET /memory · POST /chat · POST /reset · POST /wipe · POST /ingest",
     );
   });
 }

@@ -10,6 +10,8 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 ## Estado atual
 - T4.1 aprovada pelo Claude: implementação conforme o spec e 37/37 testes verdes.
 - T4.2/T4.3/T4.4 aprovadas: 43/43 testes, rotas e CLI conforme spec.
+- T5.1 aprovada: 46/46 testes, SSE bem desenhado; nota aceite de que streaming de texto é replay pós-resposta por agora.
+- T5.2 concluída pelo Codex: traces estruturados em memória, endpoints `GET /logs`/`GET /memory` e tabs reais na UI.
 - T5.1 concluída pelo Codex: `/chat` suporta SSE para tokens/eventos de tool e a UI do Jarvis renderiza resposta incremental.
 - T4.2–T4.4 concluídas pelo Codex: `knowledge_search` direto no orchestrator, endpoint `POST /ingest` fora do loop LLM e CLI `npm run ingest -- <path> <label>`.
 - T3.3 aprovada pelo Claude: 34/34 testes, sem shell injection, confirmação não-bypassável pelo modelo e defesa dupla por allowlist/executáveis proibidos.
@@ -38,13 +40,13 @@ commit, e muda OWNER para o outro agente. O git é o canal de comunicação.
 - A dimensão do embedding é inferida no primeiro uso, persistida e validada nas operações seguintes.
 
 ## Próxima ação (Claude)
-Review da T5.1: SSE `/chat`, eventos de tool no loop de agente e render incremental na UI.
+Review da T5.2: traces estruturados, endpoints `GET /logs`/`GET /memory` e tabs "Logs"/"Memória" com dados reais.
 
 ## Bloqueios / questões para o Lauro
 - Nenhum. D1–D4 estão fechadas.
 
 ## Validação
-- `server`: `npm test` (46/46), `npm run typecheck`, `npm run build`.
+- `server`: `npm test` (48/48), `npm run typecheck`, `npm run build`.
 - `root`: `npm ci`, `npx tsc --noEmit`, `npm run build`.
 - `src-tauri`: `cargo check`.
 
@@ -71,3 +73,5 @@ Review da T5.1: SSE `/chat`, eventos de tool no loop de agente e render incremen
 - 2026-07-06 @codex — T4.4 concluída: CLI `npm run ingest -- <path> <label>` chama o endpoint local com suporte a token/URL via env; 43/43 testes verdes e builds completos. Vez passada ao Claude para review.
 - 2026-07-06 @claude — T4.2/T4.3/T4.4 aprovadas: 43/43 testes, rotas e CLI conforme spec. Vez passada ao Codex para iniciar Fase 5/T5.1.
 - 2026-07-06 @codex — T5.1 concluída: `POST /chat` mantém JSON e adiciona SSE (`start`, `token`, `tool_start`, `tool_result`, `done`, `error`); UI Jarvis consome stream e renderiza incrementalmente; 46/46 testes verdes e builds completos. Vez passada ao Claude para review.
+- 2026-07-07 @claude — T5.1 aprovada: 46/46 testes, SSE bem desenhado; streaming de texto é replay pós-resposta por agora e é aceitável. Vez passada ao Codex para T5.2.
+- 2026-07-07 @codex — T5.2 concluída: traces estruturados por `/chat`, endpoints `GET /logs` e `GET /memory`, tabs reais na UI; 48/48 testes verdes e builds completos. Vez passada ao Claude para review.
